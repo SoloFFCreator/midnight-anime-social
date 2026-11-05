@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { onValue, push, ref, remove, set } from 'firebase/database'
-import { signInWithPopup, signOut } from 'firebase/auth'
+import { getRedirectResult, signInWithPopup, signInWithRedirect, signOut } from 'firebase/auth'
 import { auth, db, googleProvider } from './firebase'
 import { useSession } from './session'
 import { FeedPage, ExplorePage, InboxPage, ProfilePage } from './pages.jsx'
@@ -18,15 +18,43 @@ const links = [
 
 function SignIn({ compact = false }) {
   const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    getRedirectResult(auth).catch((e) => setError(authErrorMessage(e)))
+  }, [])
+  async function handleGoogleSignIn() {
+    setError('')
+    setBusy(true)
+    try {
+      await signInWithPopup(auth, googleProvider)
+    } catch (e) {
+      if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment'].includes(e.code)) {
+        try { await signInWithRedirect(auth, googleProvider); return }
+        catch (redirectError) { setError(authErrorMessage(redirectError)) }
+      } else {
+        setError(authErrorMessage(e))
+      }
+    }
+    setBusy(false)
+  }
   return <div className={compact ? '' : 'auth-wrap'}>
     {!compact && <div className="auth-brand"><BrandMark /><p className="eyebrow">YOUR FANDOM, YOUR PEOPLE</p><h1>Where anime<br /><em>finds its people.</em></h1><p className="muted">Share your latest obsession, collect moments, and find fans who get it.</p><div className="auth-art"><span className="spark">✦</span><div className="orbit orb1"/><div className="orbit orb2"/><div className="orb-caption">MIDNIGHT<br />IS OUR<br /><b>HOUR</b></div></div></div>}
     <div className={compact ? 'signin-card compact-card' : 'signin-card'}>
       <BrandMark /><div className="eyebrow">WELCOME TO THE COMMUNITY</div><h2>Sign in to continue</h2><p className="muted">Your people are waiting in the feed.</p>
-      <button className="google-button" onClick={async () => { try { await signInWithPopup(auth, googleProvider) } catch (e) { setError(e.message) } }}><span className="google-g">G</span> Continue with Google</button>
+      <button className="google-button" onClick={handleGoogleSignIn} disabled={busy}><span className="google-g">G</span> {busy ? 'Connecting…' : 'Continue with Google'}</button>
       {error && <p className="error-text">{error}</p>}
       <p className="fineprint">By continuing, you agree to keep the community kind, spoiler-aware, and respectful.</p>
     </div>
   </div>
+}
+function authErrorMessage(error) {
+  switch (error?.code) {
+    case 'auth/unauthorized-domain': return `This app domain is not authorized in Firebase Authentication. Add ${window.location.hostname} under Authentication → Settings → Authorized domains.`
+    case 'auth/operation-not-allowed': return 'Google sign-in is not enabled for this Firebase project. Enable the Google provider in Authentication → Sign-in method.'
+    case 'auth/popup-closed-by-user': return 'The Google sign-in window was closed before sign-in finished. Please try again.'
+    case 'auth/network-request-failed': return 'A network error interrupted Google sign-in. Check your connection and try again.'
+    default: return `${error?.message || 'Google sign-in could not be completed.'} (${error?.code || 'unknown error'})`
+  }
 }
 function AppShell() {
   const { user, profile, loading, saveProfile } = useSession()

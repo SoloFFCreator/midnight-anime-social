@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 
 export function BrandMark() {
-  return <Link to="/" className="brand"><span className="brand-icon">夜</span><span>Midnight<span className="brand-accent">Anime</span><small> SOCIAL</small></span></Link>
+  return <Link to="/" className="brand" aria-label="Midnight Anime Social home"><span className="brand-icon"><img src="/midnight-anime-mark-small.png" alt="" /></span><span>Midnight<span className="brand-accent">Anime</span><small> SOCIAL</small></span></Link>
 }
 
 export function Avatar({ src, name = '?', size = 'md', ring = false }) {

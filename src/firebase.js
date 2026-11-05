@@ -6,7 +6,9 @@ import { getDatabase } from 'firebase/database'
 // The values are Firebase's public web-app identifiers, not admin credentials.
 const config = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyClcy2YXqryJAkg_wy1W4RLqkYMIsEg2Rk',
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'midnightanime.bond',
+  // The OAuth handler belongs to this Firebase project. Add the app's custom
+  // origin separately under Firebase Authentication > Authorized domains.
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'mid-night-anime.firebaseapp.com',
   databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || 'https://mid-night-anime-default-rtdb.asia-southeast1.firebasedatabase.app',
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'mid-night-anime',
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'mid-night-anime.firebasestorage.app',

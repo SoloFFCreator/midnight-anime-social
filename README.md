@@ -72,7 +72,8 @@ The Worker uses AWS Signature V4 against the R2 S3 endpoint. It does not use or 
 
 ## Firebase setup
 
-- Enable Google sign-in in Firebase Authentication and add the deployed app domain under authorized domains.
+- Keep `authDomain` set to `mid-night-anime.firebaseapp.com`, the Firebase project's OAuth callback host. The live Vercel app resolves at `social.midnightanime.bond`; add the exact hostname `social.midnightanime.bond` under Firebase Authentication → Settings → Authorized domains. `social.midanightanime.bond` (missing the second “i” in “midnight”) does not resolve and is not the live app hostname.
+- Enable Google sign-in in Firebase Authentication.
 - Review `database.rules.json` against the live data layout, then apply it in Firebase Realtime Database Rules. The file is a starting policy and is not automatically applied by this repository.
 - Posts, stories, profiles, follows, notifications and chats are stored in Realtime Database. Authentication is required for reads of community content. Each account can only create/update its own authored posts and stories.
 - Consider adding server-side moderation, rate limiting, abuse reporting, account deletion, and authoritative notification fan-out before opening sign-ups widely.
