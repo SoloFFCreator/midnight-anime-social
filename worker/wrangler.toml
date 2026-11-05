@@ -1,0 +1,15 @@
+name = "midnight-anime-social-media"
+main = "src/index.js"
+compatibility_date = "2025-06-20"
+
+# Configure these values in the Worker dashboard or via `wrangler secret put`.
+# Do not commit the R2 S3 secret or an API token into source control.
+[vars]
+R2_BUCKET_NAME = "midnight-anime-social"
+ALLOWED_ORIGINS = "http://localhost:5173"
+
+# Required secrets:
+# CLOUDFLARE_ACCOUNT_ID
+# R2_ACCESS_KEY_ID
+# R2_SECRET_ACCESS_KEY
+# FIREBASE_API_KEY

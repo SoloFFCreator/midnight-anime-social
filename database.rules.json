@@ -1,0 +1,63 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "profiles": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.hasChildren(['uid', 'username', 'displayName']) && newData.child('uid').val() === $uid"
+      }
+    },
+    "posts": {
+      ".read": "auth != null",
+      "$postId": {
+        ".write": "auth != null && ((!data.exists() && newData.child('authorId').val() === auth.uid) || (data.exists() && data.child('authorId').val() === auth.uid))",
+        "likes": {
+          "$uid": { ".write": "auth != null && auth.uid === $uid" }
+        },
+        "comments": {
+          "$commentId": { ".write": "auth != null && ((!data.exists() && newData.child('uid').val() === auth.uid) || (data.exists() && data.child('uid').val() === auth.uid))" }
+        }
+      }
+    },
+    "stories": {
+      ".read": "auth != null",
+      "$storyId": {
+        ".write": "auth != null && ((!data.exists() && newData.child('authorId').val() === auth.uid) || (data.exists() && data.child('authorId').val() === auth.uid))"
+      }
+    },
+    "follows": {
+      "$uid": {
+        ".read": "auth != null",
+        "$targetUid": { ".write": "auth != null && auth.uid === $uid" }
+      }
+    },
+    "followers": {
+      "$uid": {
+        ".read": "auth != null",
+        "$followerUid": { ".write": "auth != null && auth.uid === $followerUid" }
+      }
+    },
+    "notifications": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$notificationId": { ".write": "auth != null && (auth.uid === $uid || newData.child('fromId').val() === auth.uid)" }
+      }
+    },
+    "userChats": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$chatId": { ".write": "auth != null && (auth.uid === $uid || newData.child('peer/uid').val() === auth.uid)" }
+      }
+    },
+    "chats": {
+      "$chatId": {
+        ".read": "auth != null && root.child('userChats').child(auth.uid).child($chatId).exists()",
+        "messages": {
+          "$messageId": { ".write": "auth != null && root.child('userChats').child(auth.uid).child($chatId).exists() && ((!data.exists() && newData.child('senderId').val() === auth.uid) || (data.exists() && data.child('senderId').val() === auth.uid))" }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,21 @@
+import { initializeApp } from 'firebase/app'
+import { getAuth, GoogleAuthProvider } from 'firebase/auth'
+import { getDatabase } from 'firebase/database'
+
+// This is the same Firebase project used by Midnight Anime streaming.
+// The values are Firebase's public web-app identifiers, not admin credentials.
+const config = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyClcy2YXqryJAkg_wy1W4RLqkYMIsEg2Rk',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'midnightanime.bond',
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || 'https://mid-night-anime-default-rtdb.asia-southeast1.firebasedatabase.app',
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'mid-night-anime',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'mid-night-anime.firebasestorage.app',
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '655330045563',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:655330045563:web:3d99e3be8ad7cb2734bcde',
+}
+
+export const app = initializeApp(config)
+export const auth = getAuth(app)
+export const db = getDatabase(app)
+export const googleProvider = new GoogleAuthProvider()
+googleProvider.setCustomParameters({ prompt: 'select_account' })
