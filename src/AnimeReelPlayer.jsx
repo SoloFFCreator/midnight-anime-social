@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { onValue, push, ref, remove, set } from 'firebase/database'
 import { db } from './firebase'
 import { NuvioApi } from './api/nuvio.js'
 import { TMDBApi, tmdbImage } from './api/tmdb.js'
 import StreamPlayer from './StreamPlayer.jsx'
-import { ArrowLeft, Bookmark, Check, ChevronDown, Clapperboard, Heart, MessageCircle, Send, Volume2 } from 'lucide-react'
+import { ArrowLeft, Bookmark, Check, ChevronDown, Clapperboard, Heart, MessageCircle, Send, X } from 'lucide-react'
 
 export default function AnimeReelPlayer({ user }) {
   const { mediaType: routeType, id, season: routeSeason, episode: routeEpisode } = useParams()
@@ -26,9 +26,12 @@ export default function AnimeReelPlayer({ user }) {
   const [saved, setSaved] = useState(false)
   const [likes, setLikes] = useState(0)
   const [comments, setComments] = useState([])
+  const [commentsError, setCommentsError] = useState('')
   const [showComments, setShowComments] = useState(false)
   const [comment, setComment] = useState('')
   const [actionMessage, setActionMessage] = useState('')
+  const touchStartY = useRef(null)
+  const lastWheelStep = useRef(0)
 
   const episodeKey = `${mediaType}_${id}_s${season}_e${episode}`
   const route = `/reels/anime/${mediaType}/${id}/${season}/${episode}`
@@ -62,7 +65,18 @@ export default function AnimeReelPlayer({ user }) {
     setLiked(Boolean(values[user.uid]))
     setLikes(Object.keys(values).length)
   }, () => {}), [episodeKey, user.uid])
-  useEffect(() => onValue(ref(db, `animeReels/${episodeKey}/comments`), (snapshot) => setComments(Object.values(snapshot.val() || {}).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))), () => {}), [episodeKey])
+  useEffect(() => {
+    setCommentsError('')
+    return onValue(ref(db, `animeReels/${episodeKey}/comments`),
+      (snapshot) => setComments(Object.values(snapshot.val() || {}).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))),
+      () => setCommentsError('Comments are unavailable. Check the Firebase animeReels read rule.'))
+  }, [episodeKey])
+  useEffect(() => {
+    if (!showComments) return undefined
+    const closeOnEscape = (event) => { if (event.key === 'Escape') setShowComments(false) }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [showComments])
   useEffect(() => onValue(ref(db, `saved/${user.uid}/anime_${episodeKey}`), (snapshot) => setSaved(Boolean(snapshot.val())), () => {}), [episodeKey, user.uid])
 
   useEffect(() => {
@@ -85,6 +99,34 @@ export default function AnimeReelPlayer({ user }) {
 
   function changeEpisode(nextSeason, nextEpisode) {
     navigate(`/reels/anime/${mediaType}/${id}/${Math.max(1, Number(nextSeason) || 1)}/${Math.max(1, Number(nextEpisode) || 1)}`)
+  }
+  function stepEpisode(direction) {
+    if (mediaType === 'movie') return
+    const seasonIndex = seasonList.findIndex((item) => Number(item.season_number) === season)
+    if (direction > 0) {
+      if (episode < episodeCount) return changeEpisode(season, episode + 1)
+      const nextSeason = seasonList[seasonIndex + 1]
+      if (nextSeason) changeEpisode(nextSeason.season_number, 1)
+      return
+    }
+    if (episode > 1) return changeEpisode(season, episode - 1)
+    const previousSeason = seasonList[seasonIndex - 1]
+    if (previousSeason) changeEpisode(previousSeason.season_number, previousSeason.episode_count || 1)
+  }
+  function handleTouchStart(event) {
+    if (event.target.closest('button, a, select, input, textarea')) return
+    touchStartY.current = event.touches[0]?.clientY ?? null
+  }
+  function handleTouchEnd(event) {
+    if (touchStartY.current == null) return
+    const delta = touchStartY.current - (event.changedTouches[0]?.clientY ?? touchStartY.current)
+    touchStartY.current = null
+    if (Math.abs(delta) > 65) stepEpisode(delta > 0 ? 1 : -1)
+  }
+  function handleWheel(event) {
+    if (Math.abs(event.deltaY) < 45 || Date.now() - lastWheelStep.current < 700) return
+    lastWheelStep.current = Date.now()
+    stepEpisode(event.deltaY > 0 ? 1 : -1)
   }
   async function toggleLike() {
     const path = `animeReels/${episodeKey}/likes/${user.uid}`
@@ -109,11 +151,12 @@ export default function AnimeReelPlayer({ user }) {
     const text = comment.trim()
     if (!text) return
     setActionMessage('')
+    setCommentsError('')
     try {
       const entry = push(ref(db, `animeReels/${episodeKey}/comments`))
       await set(entry, { id: entry.key, uid: user.uid, username: profile?.username || user.displayName || 'fan', text: text.slice(0, 500), createdAt: Date.now() })
       setComment('')
-    } catch { setActionMessage('Firebase denied this comment. Check the animeReels interaction rules and try again.') }
+    } catch { setCommentsError('Firebase denied this comment. Check the animeReels interaction rule and try again.') }
   }
 
   return <section className="anime-reel-page">
@@ -123,9 +166,10 @@ export default function AnimeReelPlayer({ user }) {
     {details && <>
       <div className="anime-reel-layout">
         <div className="anime-reel-stage" style={backdrop ? { backgroundImage: `linear-gradient(180deg,rgba(6,6,9,.12),rgba(6,6,9,.78)),url(${backdrop})` } : undefined}>
-          <div className="anime-reel-frame">
-            {source ? <StreamPlayer key={`${source.id}-${retry}`} source={source} poster={poster} onRetry={() => setRetry((value) => value + 1)}/> : <div className="anime-provider-wait">{resolving ? <><span className="spinner"/><b>Finding a provider source…</b><small>{title} · {episodeLabel}</small></> : <><Clapperboard size={26}/><b>Episode source unavailable</b><small>{providerError || 'Try another audio track or retry in a moment.'}</small><button className="secondary-button" type="button" onClick={() => setRetry((value) => value + 1)}>Retry provider</button><a href="https://www.midnightanime.bond/" target="_blank" rel="noreferrer">Open Midnight Anime</a></>}</div>}
+          <div className="anime-reel-frame" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} onWheel={handleWheel}>
+            {source ? <StreamPlayer key={`${source.id}-${retry}`} source={source} poster={poster} onRetry={() => setRetry((value) => value + 1)}/> : <div className="anime-provider-wait">{resolving ? <><span className="spinner"/><b>Finding a provider source…</b><small>{title} · {episodeLabel}</small></> : <><Clapperboard size={26}/><b>Episode source unavailable</b><small>{providerError || 'Try another audio track or retry in a moment.'}</small><button className="secondary-button" type="button" onClick={() => setRetry((value) => value + 1)}>Retry provider</button></>}</div>}
             <div className="anime-reel-overlay"><div className="anime-reel-title"><span>TMDB · {mediaType === 'movie' ? 'FILM' : 'SERIES'}</span><b>{title}</b><small>{episodeLabel}</small></div><div className="anime-reel-actions"><button className={liked ? 'is-liked' : ''} type="button" onClick={toggleLike} aria-label={liked ? 'Unlike episode' : 'Like episode'}><Heart fill={liked ? 'currentColor' : 'none'}/><span>{likes.toLocaleString()}</span></button><button type="button" onClick={() => setShowComments((value) => !value)} aria-label="Show episode comments"><MessageCircle/><span>{comments.length.toLocaleString()}</span></button><button type="button" onClick={shareEpisode} aria-label="Share episode"><Send/><span>Share</span></button><button className={saved ? 'is-saved' : ''} type="button" onClick={toggleSave} aria-label={saved ? 'Unsave episode' : 'Save episode'}>{saved ? <Check/> : <Bookmark/>}<span>{saved ? 'Saved' : 'Save'}</span></button></div></div>
+            {mediaType !== 'movie' && episode < episodeCount && <span className="anime-swipe-hint">Swipe up for next episode</span>}
           </div>
         </div>
         <aside className="anime-reel-sidebar">
@@ -133,13 +177,10 @@ export default function AnimeReelPlayer({ user }) {
           {mediaType !== 'movie' && <div className="anime-episode-chooser"><label>Season<span className="select-wrap"><select value={selectedSeason?.season_number || season} onChange={(event) => changeEpisode(event.target.value, 1)}>{seasonList.map((item) => <option key={item.season_number} value={item.season_number}>{item.name || `Season ${item.season_number}`}</option>)}</select><ChevronDown size={15}/></span></label><label>Episode<span className="select-wrap"><select value={Math.min(episode, episodeCount || 1)} onChange={(event) => changeEpisode(season, event.target.value)}>{Array.from({ length: Math.max(1, episodeCount) }, (_, index) => <option key={index + 1} value={index + 1}>Episode {index + 1}</option>)}</select><ChevronDown size={15}/></span></label></div>}
           <label className="anime-audio-select">Audio track<span className="select-wrap"><select value={audio} onChange={(event) => setAudio(event.target.value)}><option value="sub">Subtitled</option><option value="dub">Dubbed</option><option value="hindi">Hindi</option></select><ChevronDown size={15}/></span></label>
           {streams.length > 1 && <label className="anime-audio-select">Provider source<span className="select-wrap"><select value={source?.id || ''} onChange={(event) => setSourceId(event.target.value)}>{streams.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.quality}</option>)}</select><ChevronDown size={15}/></span></label>}
-          <div className="anime-provider-note"><Volume2 size={15}/><span>Playback resolves through the Midnight Anime provider. Anime video is streamed, never stored in social R2.</span></div>
-          <p className="tmdb-credit">Title artwork and metadata: TMDB.</p>
-          <a className="anime-external-link" href="https://www.midnightanime.bond/" target="_blank" rel="noreferrer">Open Midnight Anime site ↗</a>
         </aside>
       </div>
       {actionMessage && <p className="provider-error-note" role="status">{actionMessage}</p>}
-      {showComments && <section className="anime-comments"><header><b>Episode comments · {comments.length}</b><span>Keep it kind and spoiler-aware.</span></header><div className="anime-comment-list">{comments.length ? comments.map((item) => <p key={item.id}><b>@{item.username || 'fan'}</b> {item.text}</p>) : <p className="muted tiny">Be the first to share a thought.</p>}</div><form onSubmit={submitComment}><input value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Add an episode comment…" maxLength={500}/><button disabled={!comment.trim()}>Post</button></form></section>}
+      {showComments && <div className="anime-comments-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setShowComments(false)}><section className="anime-comments" role="dialog" aria-modal="true" aria-label="Episode comments"><header><div><b>Comments</b><span>{comments.length} · {episodeLabel}</span></div><button type="button" onClick={() => setShowComments(false)} aria-label="Close comments"><X size={19}/></button></header><div className="anime-comment-list">{commentsError ? <p className="anime-comments-error">{commentsError}</p> : comments.length ? comments.map((item) => <p key={item.id}><b>@{item.username || 'fan'}</b> {item.text}</p>) : <p className="muted tiny">Be the first to share a thought.</p>}</div><form onSubmit={submitComment}><input value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Add a comment…" maxLength={500}/><button disabled={!comment.trim()}>Post</button></form></section></div>}
     </>}
   </section>
 }

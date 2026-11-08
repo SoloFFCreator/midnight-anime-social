@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { ref, remove, runTransaction } from 'firebase/database'
 import { db } from './firebase'
 import { useSession } from './session'
-import { Avatar } from './ui.jsx'
+import { Avatar, uploadPrivateMedia } from './ui.jsx'
 import { Camera, X } from 'lucide-react'
 
 const normalizeHandle = (value) => value.trim().replace(/^@+/, '').toLowerCase().replace(/^[._]+|[._]+$/g, '')
@@ -29,15 +29,7 @@ export default function ProfileEditor({ user, profile, onClose }) {
   }, [avatarFile])
 
   async function uploadAvatar(file) {
-    const base = import.meta.env.VITE_R2_WORKER_URL
-    if (!base) throw new Error('Private media is not configured yet. Profile text can still be saved; avatar uploads need the R2 Worker URL.')
-    const token = await user.getIdToken()
-    const response = await fetch(`${base}/upload-url`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ filename: file.name, contentType: file.type, size: file.size }) })
-    const signed = await response.json().catch(() => ({}))
-    if (!response.ok) throw new Error(signed.error || 'Could not prepare a private avatar upload.')
-    const put = await fetch(signed.url, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file })
-    if (!put.ok) throw new Error('The private avatar upload failed. Please try again.')
-    return signed.key
+    return uploadPrivateMedia(file, user, setProgress)
   }
 
   async function submit(event) {
@@ -55,7 +47,7 @@ export default function ProfileEditor({ user, profile, onClose }) {
       if (!claim.committed || claim.snapshot?.val() !== user.uid) throw new Error('HANDLE_TAKEN')
       claimedNewHandle = cleanHandle !== oldHandle
       let avatarKey = profile.avatarKey || ''
-      if (avatarFile) { setProgress('Uploading profile photo to private R2…'); avatarKey = await uploadAvatar(avatarFile) }
+      if (avatarFile) { avatarKey = await uploadAvatar(avatarFile) }
       setProgress('Saving profile…')
       const patch = { displayName: displayName.trim(), username: cleanHandle, bio: bio.trim().slice(0, 220), website: website.trim().slice(0, 200), pronouns: pronouns.trim().slice(0, 40), ...(avatarKey ? { avatarKey } : {}), updatedAt: Date.now() }
       await saveProfile(patch)
@@ -82,7 +74,7 @@ export default function ProfileEditor({ user, profile, onClose }) {
         <div className="profile-field-pair"><label>Pronouns<input value={pronouns} onChange={(e) => setPronouns(e.target.value)} maxLength={40} placeholder="Optional" /></label><label>Website<input type="url" value={website} onChange={(e) => setWebsite(e.target.value)} maxLength={200} placeholder="https://…" /></label></div>
       </div>
       {error && <p className="auth-error" role="alert">{error}</p>}{progress && <p className="upload-progress">{progress}</p>}
-      <footer className="profile-edit-foot"><span className="muted tiny">Your profile photo is stored in private R2.</span><button className="primary-button" disabled={busy}>{busy ? 'Saving…' : 'Save changes'}</button></footer>
+      <footer className="profile-edit-foot"><span className="muted tiny">Your profile photo is stored in private AWS S3.</span><button className="primary-button" disabled={busy}>{busy ? 'Saving…' : 'Save changes'}</button></footer>
     </form>
   </div>
 }

@@ -15,7 +15,7 @@ const ProfileEditor = lazy(() => import('./ProfileEditor.jsx'))
 const AnimePage = lazy(() => import('./AnimePage.jsx'))
 const AnimeReelPlayer = lazy(() => import('./AnimeReelPlayer.jsx'))
 import InstagramVideo from './InstagramVideo.jsx'
-import { Avatar, BrandMark } from './ui.jsx'
+import { Avatar, BrandMark, uploadPrivateMedia } from './ui.jsx'
 import { Home, Compass, MessageCircle, Plus, Search, Bell, LogOut, Menu, X, UserRound, Sparkles, SunMoon, Play } from 'lucide-react'
 
 const links = [
@@ -93,17 +93,7 @@ function CreateModal({user,profile,onClose,initialStory=false}) {
     if(!file){setError('Choose a photo or video to share.');return}
     setBusy(true);setError('')
     try{
-      const token=await user.getIdToken()
-      const base=import.meta.env.VITE_R2_WORKER_URL
-      if(!base)throw new Error('R2 media service is not configured. See README.md.')
-      setProgress('Preparing secure upload…')
-      const sign=await fetch(`${base}/upload-url`,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({filename:file.name,contentType:file.type,size:file.size})})
-      const signBody=await sign.json().catch(()=>({}))
-      if(!sign.ok)throw new Error(signBody.error||'Could not prepare the upload. Check the R2 Worker setup.')
-      const {url,key}=signBody
-      setProgress('Uploading to private R2…')
-      const put=await fetch(url,{method:'PUT',headers:{'Content-Type':file.type},body:file})
-      if(!put.ok)throw new Error('The media upload failed. Please try again.')
+      const key=await uploadPrivateMedia(file,user,setProgress)
       setProgress('Sharing with the community…')
       const path=kind==='story'?'stories':'posts'
       const node=push(ref(db,path))

@@ -59,7 +59,10 @@ export default function InstagramVideo({ src, poster = '', autoPlay = false, loo
     event.stopPropagation()
     const next = !muted
     setMuted(next)
-    if (videoRef.current) videoRef.current.muted = next
+    if (videoRef.current) {
+      videoRef.current.muted = next
+      if (!next && videoRef.current.paused) videoRef.current.play().catch(() => setPlaying(false))
+    }
   }
   function seek(event) {
     event.stopPropagation()
@@ -68,10 +71,11 @@ export default function InstagramVideo({ src, poster = '', autoPlay = false, loo
 
   return <div className={`instagram-video ${className}`} onPointerMove={reveal} onTouchStart={reveal} onClick={(event) => { event.stopPropagation(); togglePlay(event) }}>
     <video ref={videoRef} src={src || undefined} poster={poster || undefined} autoPlay={autoPlay} muted={muted} loop={loop} playsInline preload="metadata" controls={false} aria-label={title}/>
+    <button type="button" className={`instagram-video-sound ${muted ? 'is-muted' : 'is-live'}`} onClick={toggleMute} aria-label={muted ? 'Turn sound on' : 'Turn sound off'}><span>{muted ? <VolumeX size={16}/> : <Volume2 size={16}/>}</span>{muted ? 'Tap for sound' : 'Sound on'}</button>
     {!playing && src && <button type="button" className="instagram-video-center" onClick={togglePlay} aria-label="Play video"><Play fill="currentColor"/></button>}
     <div className={`instagram-video-controls ${visible ? 'controls-visible' : ''}`} onClick={reveal}>
       <div className="instagram-video-progress"><div style={{ width: `${duration ? Math.min(100, current / duration * 100) : 0}%` }}/><input type="range" min="0" max={duration || 0} step="0.1" value={Math.min(current, duration || 0)} onChange={seek} aria-label="Seek video"/></div>
-      <div className="instagram-video-control-row"><button type="button" onClick={togglePlay} aria-label={playing ? 'Pause video' : 'Play video'}>{playing ? <Pause size={17} fill="currentColor"/> : <Play size={17} fill="currentColor"/>}</button><span>{clock(current)}{duration ? ` / ${clock(duration)}` : ''}</span><button type="button" onClick={toggleMute} className="video-mute-button" aria-label={muted ? 'Unmute video' : 'Mute video'}>{muted ? <VolumeX size={17}/> : <Volume2 size={17}/>}</button></div>
+      <div className="instagram-video-control-row"><button type="button" onClick={togglePlay} aria-label={playing ? 'Pause video' : 'Play video'}>{playing ? <Pause size={17} fill="currentColor"/> : <Play size={17} fill="currentColor"/>}</button><span>{clock(current)}{duration ? ` / ${clock(duration)}` : ''}</span></div>
     </div>
   </div>
 }

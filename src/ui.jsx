@@ -3,15 +3,21 @@ import { Link } from 'react-router-dom'
 import { onValue, ref } from 'firebase/database'
 import { auth, db } from './firebase'
 
+export { uploadPrivateMedia } from './media.js'
+
 export function BrandMark() {
   return <Link to="/" className="brand" aria-label="Midnight Anime Social home"><span className="brand-icon"><img src="/midnight-anime-logo.svg" alt="" /></span><span>Midnight<span className="brand-accent">Anime</span><small> SOCIAL</small></span></Link>
 }
 
 export async function getPrivateMediaUrl(key, user = auth.currentUser) {
-  const base = import.meta.env.VITE_R2_WORKER_URL
-  if (!key || !base || !user) return ''
+  if (!key || !user) return ''
   const token = await user.getIdToken()
-  const response = await fetch(`${base}/media-url?key=${encodeURIComponent(key)}`, { headers: { Authorization: `Bearer ${token}` } })
+  const response = key.startsWith('aws/')
+    ? await fetch(`/api/aws-media?key=${encodeURIComponent(key)}`, { headers: { Authorization: `Bearer ${token}` } })
+    : import.meta.env.VITE_R2_WORKER_URL
+      ? await fetch(`${import.meta.env.VITE_R2_WORKER_URL}/media-url?key=${encodeURIComponent(key)}`, { headers: { Authorization: `Bearer ${token}` } })
+      : null
+  if (!response) return ''
   if (!response.ok) return ''
   const body = await response.json()
   return body?.url || ''

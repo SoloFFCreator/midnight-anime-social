@@ -17,7 +17,14 @@ export default async function handler(req, res) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 45000)
   try {
-    const upstream = await fetch(`${UPSTREAM}?${params}`, { headers: { Accept: 'application/json' }, signal: controller.signal })
+    const upstream = await fetch(`${UPSTREAM}?${params}`, {
+      headers: {
+        Accept: 'application/json',
+        Origin: 'https://www.midnightanime.bond',
+        Referer: 'https://www.midnightanime.bond/',
+      },
+      signal: controller.signal,
+    })
     const body = await upstream.text()
     res.setHeader('Cache-Control', 'no-store')
     res.setHeader('Content-Type', upstream.headers.get('content-type') || 'application/json')
