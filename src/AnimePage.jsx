@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { ArrowUpRight, Clapperboard, ExternalLink, Search, Star } from 'lucide-react'
 import { EmptyState, PageHeading } from './ui.jsx'
 
@@ -14,7 +14,7 @@ function animeTitle(item) {
 
 function AnimeCard({ item }) {
   const [episode, setEpisode] = useState('1')
-  const watchHref = `${STREAM_ORIGIN}/watch/${item.id}/${Math.max(1, Number(episode) || 1)}`
+  const watchPath = `/anime/watch/${item.id}/${Math.max(1, Number(episode) || 1)}`
   return <article className="anime-card">
     <img className="anime-cover" src={item.coverImage?.large || ''} alt={`${animeTitle(item)} poster`} loading="lazy"/>
     <div className="anime-card-copy">
@@ -26,7 +26,7 @@ function AnimeCard({ item }) {
       </div>
       <div className="anime-watch-row">
         <label>Episode<input type="number" inputMode="numeric" min="1" max={item.episodes || 999} value={episode} onChange={(event) => setEpisode(event.target.value)} aria-label={`Episode number for ${animeTitle(item)}`}/></label>
-        <a className="primary-button anime-watch-button" href={watchHref} target="_blank" rel="noopener noreferrer">Watch <ArrowUpRight size={15}/></a>
+        <Link className="primary-button anime-watch-button" to={watchPath}>Watch <ArrowUpRight size={15}/></Link>
       </div>
     </div>
   </article>
@@ -66,7 +66,7 @@ export default function AnimePage() {
 
   return <section className="anime-page">
     <div className="anime-page-top">
-      <PageHeading eyebrow="THE MIDNIGHT ANIME WATCHLIST" title="Find your next series." sub="Discover anime here, then continue on the Midnight Anime streaming player."/>
+      <PageHeading eyebrow="THE MIDNIGHT ANIME WATCHLIST" title="Find your next series." sub="Discover titles and watch through the existing Midnight Anime player."/>
       <a className="secondary-button anime-home-link" href={STREAM_ORIGIN} target="_blank" rel="noopener noreferrer"><ExternalLink size={15}/> Streaming home</a>
     </div>
     <label className="anime-search"><Search size={18}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search titles…" aria-label="Search anime titles"/><span>ANILIST</span></label>
@@ -75,7 +75,21 @@ export default function AnimePage() {
     {!error && busy && !items.length ? <div className="anime-loading">Finding your next late-night watch…</div> : null}
     {!error && !busy && !items.length ? <EmptyState icon={<Search/>} title="No titles found" text="Try another anime title, or browse the streaming home."/> : null}
     {items.length ? <div className="anime-grid">{items.map((item) => <AnimeCard key={item.id} item={item}/>)}</div> : null}
-    <p className="anime-credit">Anime discovery metadata by AniList. Playback opens the existing Midnight Anime provider in a new tab; social media uploads remain in private R2.</p>
+    <p className="anime-credit">Anime discovery metadata by AniList. Playback stays on the existing Midnight Anime provider, embedded here; open it separately if the browser blocks embedding.</p>
     <Link className="anime-back-link" to="/profile">Back to your profile</Link>
+  </section>
+}
+
+export function AnimeWatchPage() {
+  const { id, episode } = useParams()
+  const watchUrl = `${STREAM_ORIGIN}/watch/${encodeURIComponent(id)}/${encodeURIComponent(episode)}`
+  return <section className="anime-page anime-watch-page">
+    <div className="anime-page-top">
+      <PageHeading eyebrow="MIDNIGHT ANIME PLAYER" title={`Episode ${episode}`} sub="Playback is provided by the existing Midnight Anime streaming site."/>
+      <Link className="secondary-button anime-home-link" to="/anime"><ArrowUpRight size={15}/> Back to discovery</Link>
+    </div>
+    <div className="anime-player-frame"><iframe src={watchUrl} title={`Midnight Anime episode ${episode}`} allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowFullScreen referrerPolicy="strict-origin-when-cross-origin"/></div>
+    <p className="anime-credit">If playback does not appear, open the official player directly.</p>
+    <a className="anime-open-player" href={watchUrl} target="_blank" rel="noopener noreferrer"><ExternalLink size={15}/> Open official player in a new tab</a>
   </section>
 }

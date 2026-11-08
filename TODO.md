@@ -8,7 +8,7 @@
 - [x] Provide editable profile photo, display name, unique handle, bio, pronouns and website.
 - [x] Provide Reels upload/playback, like, comment, share and save; store only R2 object keys in Firebase.
 - [x] Provide feed, Explore, 24-hour Stories, notifications, profile pages, saved items and direct messages.
-- [x] Add a searchable/trending anime directory using AniList metadata. Episode links use the existing Midnight Anime `/watch/{anilistId}/{episode}` route and provider.
+- [x] Add a searchable/trending anime directory using AniList metadata and an in-app embedded player using the existing Midnight Anime `/watch/{anilistId}/{episode}` route, with a new-tab fallback.
 - [x] Deploy the private R2 Worker at `https://midnight-anime-social-media.soloffofficial-83a.workers.dev`; set the live Vercel project's `VITE_R2_WORKER_URL` for all deployment targets. The unauthenticated Worker check correctly returns `Sign in required`.
 - [x] Add Firebase Realtime Database rules for owner-scoped profile/content changes, handle claims, eligible badge state, private saves, and explicit two-party chat membership.
 - [x] Document architecture, setup, deployment and migration steps in `README.md`.

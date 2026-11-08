@@ -9,7 +9,7 @@ A mobile-first anime community app paired with the Midnight Anime streaming prod
 - Community feed, Explore, 24-hour Stories, notifications, private direct messages, profile pages, and saved media.
 - Short-form Reels with private R2 video upload/playback, likes, comments, sharing, and saved state.
 - Gold official-account badge for the verified `mallaprabesh141@gmail.com` account; blue fan badge once the account has 1,000 followers. Badge images come from the supplied ZIP and are not user-editable.
-- An anime directory backed by AniList search/discovery. Selecting an episode opens the existing Midnight Anime player at `https://www.midnightanime.bond/watch/{anilistId}/{episode}` in a new tab. This deliberately reuses the established streaming provider/player instead of proxying or re-uploading third-party anime through social R2.
+- An anime directory backed by AniList search/discovery plus an authenticated in-app watch page that embeds the existing Midnight Anime player at `https://www.midnightanime.bond/watch/{anilistId}/{episode}`. A new-tab fallback is available if a browser blocks embedding. Social R2 is never used to proxy or re-upload third-party anime.
 
 ## Architecture
 
@@ -19,7 +19,7 @@ src/
   AuthScreen.jsx           Email/password, Google, registration and reset states
   ProfileEditor.jsx        Profile fields and private avatar upload
   reels.jsx                Reel feed, actions and private video upload
-  AnimePage.jsx            AniList discovery and canonical streaming links
+  AnimePage.jsx            AniList discovery and embedded canonical player
   session.jsx              Firebase Auth session and profile bootstrap
   firebase.js              Public Firebase web-app configuration
   ui.jsx                   Original logo, private media and verification badges

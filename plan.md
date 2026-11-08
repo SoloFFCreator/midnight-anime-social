@@ -12,7 +12,7 @@ Midnight Anime Social is the social companion to Midnight Anime: fans share thei
 - Direct-message chat records have explicit `participants` to constrain chat reads and message writes. The new `database.rules.json` policy uses this membership map; existing chats without it need a two-member backfill before applying the stricter rules.
 - Cloudflare R2 remains a dedicated private bucket. `midnight-anime-social-media` verifies Firebase ID tokens, checks ownership/publication references for reads, creates user-scoped keys, and issues short-lived signed URLs. The bucket-specific R2 Object Read/Write credential and Firebase Worker secrets are kept only as Worker secrets. Production CORS is limited to `https://social.midnightanime.bond` and local development.
 - Vercel project `midnight-anime-social-7u58` owns the live social domain and has `VITE_R2_WORKER_URL` set for production/preview/development. The Worker is routed at `https://midnight-anime-social-media.soloffofficial-83a.workers.dev`.
-- The `/anime` directory uses AniList for search/trending metadata and hands episodes to the canonical Midnight Anime route `https://www.midnightanime.bond/watch/{anilistId}/{episode}`. Playback itself remains on the existing provider/player; no third-party anime media is stored in the social R2 bucket.
+- The `/anime` directory uses AniList for search/trending metadata; `/anime/watch/:id/:episode` embeds the canonical Midnight Anime player at `https://www.midnightanime.bond/watch/{anilistId}/{episode}` with a new-tab fallback. Playback remains on the existing provider/player; no third-party anime media is stored in social R2.
 
 ## Structure
 
@@ -21,7 +21,7 @@ Midnight Anime Social is the social companion to Midnight Anime: fans share thei
 - `src/ProfileEditor.jsx`: profile image, display name, unique handle, bio, pronouns and website.
 - `src/pages.jsx`: feed, Stories, Explore, inbox, notifications, profiles and saved collection.
 - `src/reels.jsx`: video creation/playback, likes, comments, sharing and saved state.
-- `src/AnimePage.jsx`: AniList discovery and canonical streaming links.
+- `src/AnimePage.jsx`: AniList discovery and embedded canonical streaming player.
 - `src/session.jsx`, `src/firebase.js`, `src/ui.jsx`, `src/styles.css`: session/profile state, Firebase client, shared UI/brand/badges, responsive design.
 - `worker/src/index.js`, `worker/wrangler.toml`: private media service and deployment config.
 - `database.rules.json`, `README.md`, `TODO.md`: security policy, provider/deployment setup, remaining acceptance checks.
