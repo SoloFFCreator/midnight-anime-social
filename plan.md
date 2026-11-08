@@ -1,42 +1,31 @@
 # Midnight Anime Social — implementation plan
 
-## Product and boundaries
+## Product direction and design
 
-Build a separate social community web app in this repository, visually continuous with `midnight-anime`: near-black midnight surfaces, orange `#F47521` accents, white/soft-white text, Sora display + Inter body typography, rounded cards, anime-culture artwork, dark overlays, compact mobile-first navigation, and restrained motion. This is a social companion, not a streaming catalog.
+Midnight Anime Social is the social companion to Midnight Anime: fans share their own anime moments, follow and message one another, watch short Reels, and discover the official account. Preserve the reviewed design system: near-black surfaces (`#0A0A0F`, `#111118`, `#18181F`), ember orange (`#F47521`), warm-white text, Sora display + Inter UI typography, rounded dark surfaces, and the original `public/midnight-anime-logo.svg`. The mobile Instagram screenshots guide familiar navigation and interaction patterns without copying Instagram's brand.
 
 ## Architecture
 
-- React 18 + Vite single-page app, React Router for the feed, Explore, inbox, notifications, and profile routes.
-- Firebase Authentication for sessions and Firebase Realtime Database for profiles, posts, likes, comments, stories, follows, notifications, chat metadata and messages. Reuse the public client config from the streaming repo; never use Firebase Admin credentials in the browser.
-- Cloudflare R2 for image/video objects in a dedicated private bucket. A Cloudflare Worker verifies Firebase ID tokens, validates media type and size, generates random user-scoped object keys, and signs 15-minute PUT and GET URLs using bucket-scoped R2 S3 credentials held as Worker secrets. Browser uploads bypass the app server; media remains private at the bucket boundary.
-- `database.rules.json` provides a reviewable example Realtime Database policy. It is not applied automatically. Deployment secrets and live resource changes remain configuration steps rather than committed credentials.
+- React + Vite single-page app and React Router; routes cover feed, Explore, Reels, saved items, messages, notifications, profiles, auth and `/anime`.
+- Firebase Authentication supports Google and email/password, account creation, verification mail and password reset. Provider toggles and authorized domains are Firebase Console settings.
+- Firebase Realtime Database stores profiles, unique handle indexes, posts, Stories, Reels, likes, comments, saves, follows, notifications and direct messages. User profile changes are owner-scoped; official badge eligibility is tied to the exact verified email; blue verification is derived from 1,000+ follower entries.
+- Direct-message chat records have explicit `participants` to constrain chat reads and message writes. The new `database.rules.json` policy uses this membership map; existing chats without it need a two-member backfill before applying the stricter rules.
+- Cloudflare R2 remains a dedicated private bucket. `midnight-anime-social-media` verifies Firebase ID tokens, checks ownership/publication references for reads, creates user-scoped keys, and issues short-lived signed URLs. The bucket-specific R2 Object Read/Write credential and Firebase Worker secrets are kept only as Worker secrets. Production CORS is limited to `https://social.midnightanime.bond` and local development.
+- Vercel project `midnight-anime-social-7u58` owns the live social domain and has `VITE_R2_WORKER_URL` set for production/preview/development. The Worker is routed at `https://midnight-anime-social-media.soloffofficial-83a.workers.dev`.
+- The `/anime` directory uses AniList for search/trending metadata and hands episodes to the canonical Midnight Anime route `https://www.midnightanime.bond/watch/{anilistId}/{episode}`. Playback itself remains on the existing provider/player; no third-party anime media is stored in the social R2 bucket.
 
-## Main structure
+## Structure
 
-- `src/App.jsx`: authenticated app shell, desktop side rails, mobile tabs, create/story modal, notification route and sign-in screen.
-- `src/pages.jsx`: stories, live feed/post actions, Explore, direct messages and profile interactions.
-- `src/session.jsx`: Firebase Auth state and profile bootstrap/update.
-- `src/firebase.js`: shared Firebase client configuration.
-- `src/styles.css`: design tokens and responsive Midnight Anime visual system.
-- `worker/src/index.js`: Firebase token verification and private R2 presigning.
-- `worker/wrangler.toml`: Worker and bucket configuration.
-- `database.rules.json`: initial RTDB policy for review and deployment.
+- `src/App.jsx`: authenticated shell, navigation, media creation.
+- `src/AuthScreen.jsx`: email/password login, account creation, Google sign-in and reset.
+- `src/ProfileEditor.jsx`: profile image, display name, unique handle, bio, pronouns and website.
+- `src/pages.jsx`: feed, Stories, Explore, inbox, notifications, profiles and saved collection.
+- `src/reels.jsx`: video creation/playback, likes, comments, sharing and saved state.
+- `src/AnimePage.jsx`: AniList discovery and canonical streaming links.
+- `src/session.jsx`, `src/firebase.js`, `src/ui.jsx`, `src/styles.css`: session/profile state, Firebase client, shared UI/brand/badges, responsive design.
+- `worker/src/index.js`, `worker/wrangler.toml`: private media service and deployment config.
+- `database.rules.json`, `README.md`, `TODO.md`: security policy, provider/deployment setup, remaining acceptance checks.
 
-## Design details
+## Acceptance and validation
 
-- Design movement: Midnight streaming editorial translated into an anime-fandom social lounge.
-- Core principles: immersive darkness; orange as a confident action/identity accent; fan content first; compact, tactile controls; mobile comfort with desktop discovery rails.
-- Palette: `#0A0A0F` base, `#111118`/`#18181F` elevated surfaces, `#F47521` signature accent, `#FF9040` highlight, white with stepped opacity for text.
-- Typography: Sora 700–800 for brand/headlines, Inter 400–700 for controls and reading. Small uppercase, letter-spaced labels for context.
-- Layout: desktop three-column frame (rail/feed/utility) and mobile single-column feed with fixed bottom tabs.
-- Signature elements: orange story rings, subtle ambient orange/purple blooms, dark image scrims and tiny orange status markers.
-- Interaction: short transitions, compact hover/press feedback, clear upload progress and empty states, no heavy motion; honor reduced-motion preferences.
-- Brand essence: a late-night home for anime fans to share moments and find their people; expressive, intimate, welcoming.
-
-## Functional outcome scope
-
-Ship first-release interfaces and Firebase wiring for profile sign-in, follow controls, social feed, photo/video posts, likes, comments, Explore/search, notifications, 24-hour Stories, and direct text messages. R2 is the media object store; Firebase remains for application records. Store R2 object keys rather than credentials or permanent public URLs in post data.
-
-## Delivery constraints
-
-The private R2 bucket has been created in the connected Cloudflare account. Worker deployment requires a bucket-scoped R2 S3 access key pair and Firebase web API key as Worker secrets; these are deliberately not in Git. Firebase provider activation, database-rule review/application, frontend hosting, and setting the Worker origin remain deployment setup items. The project is committed to the selected `SoloFFCreator/midnight-anime-social` repository after checks.
+Build and lint-like validation: `npm run build`, `npm audit --omit=dev --audit-level=high`, `npx wrangler deploy --dry-run --config worker/wrangler.toml`, JSON parse validation for database rules, and `git diff --check`. A no-token test of the deployed Worker returns `Sign in required`; complete a live authenticated upload test after Vercel deploy. Firebase providers/rules and old-chat membership backfill remain console-side setup and should be verified with real accounts.

@@ -6,10 +6,11 @@ compatibility_date = "2025-06-20"
 # Do not commit the R2 S3 secret or an API token into source control.
 [vars]
 R2_BUCKET_NAME = "midnight-anime-social"
-ALLOWED_ORIGINS = "http://localhost:5173"
+ALLOWED_ORIGINS = "https://social.midnightanime.bond,http://localhost:5173"
 
 # Required secrets:
 # CLOUDFLARE_ACCOUNT_ID
 # R2_ACCESS_KEY_ID
 # R2_SECRET_ACCESS_KEY
 # FIREBASE_API_KEY
+# FIREBASE_DATABASE_URL
