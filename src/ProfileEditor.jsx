@@ -5,8 +5,8 @@ import { useSession } from './session'
 import { Avatar } from './ui.jsx'
 import { Camera, X } from 'lucide-react'
 
-const normalizeHandle = (value) => value.trim().replace(/^@+/, '').toLowerCase()
-const validHandle = (value) => /^[a-z0-9][a-z0-9._]{2,29}$/.test(value)
+const normalizeHandle = (value) => value.trim().replace(/^@+/, '').toLowerCase().replace(/^[._]+|[._]+$/g, '')
+const validHandle = (value) => /^[a-z0-9](?:[a-z0-9._]{1,28}[a-z0-9])$/.test(value)
 
 export default function ProfileEditor({ user, profile, onClose }) {
   const { saveProfile } = useSession()
@@ -32,11 +32,7 @@ export default function ProfileEditor({ user, profile, onClose }) {
     const base = import.meta.env.VITE_R2_WORKER_URL
     if (!base) throw new Error('Private media is not configured yet. Profile text can still be saved; avatar uploads need the R2 Worker URL.')
     const token = await user.getIdToken()
-    const response = await fetch(`${base}/upload-url`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ filename: file.name, contentType: file.type, size: file.size }),
-    })
+    const response = await fetch(`${base}/upload-url`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ filename: file.name, contentType: file.type, size: file.size }) })
     const signed = await response.json().catch(() => ({}))
     if (!response.ok) throw new Error(signed.error || 'Could not prepare a private avatar upload.')
     const put = await fetch(signed.url, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file })
@@ -48,46 +44,31 @@ export default function ProfileEditor({ user, profile, onClose }) {
     event.preventDefault()
     setError('')
     const cleanHandle = normalizeHandle(handle)
+    const oldHandle = normalizeHandle(profile.username || '')
     if (!displayName.trim()) return setError('Add a display name.')
-    if (!validHandle(cleanHandle)) return setError('Your @handle must be 3–30 characters and use letters, numbers, dots or underscores.')
+    if (!validHandle(cleanHandle)) return setError('Your @handle must be 3–30 characters, start and end with a letter or number, and use only letters, numbers, dots or underscores.')
     setBusy(true)
     let claimedNewHandle = false
     let profileSaved = false
     try {
-      const oldHandle = normalizeHandle(profile.username || '')
-      if (cleanHandle !== oldHandle) {
-        const claim = await runTransaction(ref(db, `handleIndex/${cleanHandle}`), (value) => value == null || value === user.uid ? user.uid : undefined)
-        if (!claim.committed) throw new Error('That @handle is already in use. Choose another one.')
-        claimedNewHandle = true
-      }
+      const claim = await runTransaction(ref(db, `handleIndex/${cleanHandle}`), (value) => value == null || value === user.uid ? user.uid : undefined)
+      if (!claim.committed || claim.snapshot?.val() !== user.uid) throw new Error('HANDLE_TAKEN')
+      claimedNewHandle = cleanHandle !== oldHandle
       let avatarKey = profile.avatarKey || ''
-      if (avatarFile) {
-        setProgress('Uploading profile photo to private R2…')
-        avatarKey = await uploadAvatar(avatarFile)
-      }
+      if (avatarFile) { setProgress('Uploading profile photo to private R2…'); avatarKey = await uploadAvatar(avatarFile) }
       setProgress('Saving profile…')
-      const patch = {
-        displayName: displayName.trim(),
-        username: cleanHandle,
-        bio: bio.trim().slice(0, 220),
-        website: website.trim().slice(0, 200),
-        pronouns: pronouns.trim().slice(0, 40),
-        ...(avatarKey ? { avatarKey } : {}),
-        updatedAt: Date.now(),
-      }
+      const patch = { displayName: displayName.trim(), username: cleanHandle, bio: bio.trim().slice(0, 220), website: website.trim().slice(0, 200), pronouns: pronouns.trim().slice(0, 40), ...(avatarKey ? { avatarKey } : {}), updatedAt: Date.now() }
       await saveProfile(patch)
       profileSaved = true
-      if (cleanHandle !== oldHandle && oldHandle) {
-        await runTransaction(ref(db, `handleIndex/${oldHandle}`), (value) => value === user.uid ? null : value).catch(() => {})
-      }
+      if (cleanHandle !== oldHandle && oldHandle) await runTransaction(ref(db, `handleIndex/${oldHandle}`), (value) => value === user.uid ? null : value).catch(() => {})
       onClose()
-    } catch (e) {
+    } catch (cause) {
       if (claimedNewHandle && !profileSaved) await runTransaction(ref(db, `handleIndex/${cleanHandle}`), (value) => value === user.uid ? null : value).catch(() => {})
-      setError(e?.message || 'Could not save your profile.')
-    } finally {
-      setBusy(false)
-      setProgress('')
-    }
+      const detail = `${cause?.code || ''} ${cause?.message || ''}`
+      if (/HANDLE_TAKEN/.test(detail)) setError('That @handle is already in use. Try another spelling; handles are unique.')
+      else if (/PERMISSION_DENIED|permission.denied/i.test(detail)) setError('Firebase denied the profile or handle change. Apply the reviewed database.rules.json to the mid-night-anime Realtime Database in Firebase Console, then retry.')
+      else setError(cause?.message || 'Could not save your profile.')
+    } finally { setBusy(false); setProgress('') }
   }
 
   return <div className="modal-backdrop profile-editor-backdrop" onMouseDown={(e) => e.target === e.currentTarget && !busy && onClose()}>
@@ -96,7 +77,7 @@ export default function ProfileEditor({ user, profile, onClose }) {
       <label className="profile-photo-picker"><span className="profile-photo-preview">{preview ? <span className="avatar avatar-profile"><img src={preview} alt="Selected profile"/></span> : <Avatar src={profile.avatar} mediaKey={profile.avatarKey} name={displayName} size="profile"/>}</span><span><b>Profile photo</b><small>Upload a photo · JPG, PNG or WebP</small></span><span className="profile-photo-action"><Camera size={16}/> Change</span><input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={(e) => setAvatarFile(e.target.files?.[0] || null)} hidden /></label>
       <div className="profile-edit-fields">
         <label>Display name<input value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={60} required /></label>
-        <label>Username<span className="profile-handle-input"><i>@</i><input value={handle} onChange={(e) => setHandle(e.target.value)} maxLength={31} autoCapitalize="none" required /></span></label>
+        <label>Username<span className="profile-handle-input"><i>@</i><input value={handle} onChange={(e) => setHandle(e.target.value)} maxLength={30} autoCapitalize="none" autoCorrect="off" spellCheck="false" required /></span><small>Unique username · 3–30 characters</small></label>
         <label>Bio<textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={3} maxLength={220} placeholder="Tell your people a little about you…"/><small>{bio.length}/220</small></label>
         <div className="profile-field-pair"><label>Pronouns<input value={pronouns} onChange={(e) => setPronouns(e.target.value)} maxLength={40} placeholder="Optional" /></label><label>Website<input type="url" value={website} onChange={(e) => setWebsite(e.target.value)} maxLength={200} placeholder="https://…" /></label></div>
       </div>

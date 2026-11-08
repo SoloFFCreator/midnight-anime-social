@@ -1,34 +1,18 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { ArrowUpRight, Clapperboard, ExternalLink, Search, Star } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Clapperboard, Search, Star } from 'lucide-react'
 import { EmptyState, PageHeading } from './ui.jsx'
-
-const ANILIST = 'https://graphql.anilist.co'
-const TRENDING_QUERY = `query { Page(page:1,perPage:24) { media(type:ANIME,sort:TRENDING_DESC,status_not:NOT_YET_RELEASED,isAdult:false) { id episodes format averageScore seasonYear title { romaji english } coverImage { large } } } }`
-const SEARCH_QUERY = `query ($search:String) { Page(page:1,perPage:24) { media(type:ANIME,search:$search,sort:SEARCH_MATCH,isAdult:false) { id episodes format averageScore seasonYear title { romaji english } coverImage { large } } } }`
-const STREAM_ORIGIN = 'https://www.midnightanime.bond'
-
-function animeTitle(item) {
-  return item?.title?.english || item?.title?.romaji || 'Untitled anime'
-}
+import { TMDBApi, tmdbImage } from './api/tmdb.js'
 
 function AnimeCard({ item }) {
-  const [episode, setEpisode] = useState('1')
-  const watchPath = `/anime/watch/${item.id}/${Math.max(1, Number(episode) || 1)}`
-  return <article className="anime-card">
-    <img className="anime-cover" src={item.coverImage?.large || ''} alt={`${animeTitle(item)} poster`} loading="lazy"/>
-    <div className="anime-card-copy">
-      <h2>{animeTitle(item)}</h2>
-      <div className="anime-meta">
-        {item.averageScore ? <span><Star size={13} fill="currentColor"/> {Number(item.averageScore / 10).toFixed(1)}</span> : null}
-        {item.seasonYear ? <span>{item.seasonYear}</span> : null}
-        {item.episodes ? <span>{item.episodes} eps</span> : item.format === 'MOVIE' ? <span>Movie</span> : <span>Series</span>}
-      </div>
-      <div className="anime-watch-row">
-        <label>Episode<input type="number" inputMode="numeric" min="1" max={item.episodes || 999} value={episode} onChange={(event) => setEpisode(event.target.value)} aria-label={`Episode number for ${animeTitle(item)}`}/></label>
-        <Link className="primary-button anime-watch-button" to={watchPath}>Watch <ArrowUpRight size={15}/></Link>
-      </div>
-    </div>
+  const poster = tmdbImage(item.posterPath, 'w500')
+  return <article className="tmdb-anime-card">
+    <Link to={`/reels/anime/${item.mediaType}/${item.id}/1/1`} className="tmdb-anime-art" aria-label={`Play ${item.title} in Reels`}>
+      <img src={poster || tmdbImage(item.backdropPath, 'w780')} alt={`${item.title} poster`} loading="lazy"/>
+      <span className="tmdb-art-play"><Clapperboard size={17}/> Play as Reel</span>
+      <span className="tmdb-art-rating"><Star size={13} fill="currentColor"/> {item.rating ? item.rating.toFixed(1) : '—'}</span>
+    </Link>
+    <div className="tmdb-anime-copy"><p className="eyebrow">{item.mediaType === 'movie' ? 'ANIME FILM' : 'ANIME SERIES'}{item.releaseDate ? ` · ${item.releaseDate.slice(0, 4)}` : ''}</p><h2>{item.title}</h2><p>{item.overview || 'A title to add to your midnight watchlist.'}</p><Link to={`/reels/anime/${item.mediaType}/${item.id}/1/1`} className="tmdb-watch-link">Watch episode <span>↗</span></Link></div>
   </article>
 }
 
@@ -37,59 +21,30 @@ export default function AnimePage() {
   const [items, setItems] = useState([])
   const [busy, setBusy] = useState(true)
   const [error, setError] = useState('')
-
   useEffect(() => {
-    const controller = new AbortController()
+    let alive = true
     const timer = window.setTimeout(async () => {
       setBusy(true)
       setError('')
       try {
-        const searching = Boolean(query.trim())
-        const response = await fetch(ANILIST, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ query: searching ? SEARCH_QUERY : TRENDING_QUERY, variables: searching ? { search: query.trim() } : {} }),
-          signal: controller.signal,
-        })
-        if (!response.ok) throw new Error(`Anime catalog returned ${response.status}.`)
-        const payload = await response.json()
-        if (payload.errors?.length) throw new Error(payload.errors[0].message || 'Anime catalog is unavailable.')
-        setItems(payload.data?.Page?.media || [])
-      } catch (requestError) {
-        if (requestError.name !== 'AbortError') setError(requestError.message || 'Could not load the anime catalog.')
-      } finally {
-        if (!controller.signal.aborted) setBusy(false)
-      }
-    }, query.trim() ? 320 : 0)
-    return () => { window.clearTimeout(timer); controller.abort() }
+        const results = query.trim() ? await TMDBApi.search(query.trim()) : await TMDBApi.trending()
+        if (alive) setItems(results)
+      } catch (requestError) { if (alive) setError(requestError.message || 'Could not load the anime directory.') }
+      finally { if (alive) setBusy(false) }
+    }, query.trim() ? 350 : 0)
+    return () => { alive = false; window.clearTimeout(timer) }
   }, [query])
-
-  return <section className="anime-page">
-    <div className="anime-page-top">
-      <PageHeading eyebrow="THE MIDNIGHT ANIME WATCHLIST" title="Find your next series." sub="Discover titles and watch through the existing Midnight Anime player."/>
-      <a className="secondary-button anime-home-link" href={STREAM_ORIGIN} target="_blank" rel="noopener noreferrer"><ExternalLink size={15}/> Streaming home</a>
-    </div>
-    <label className="anime-search"><Search size={18}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search titles…" aria-label="Search anime titles"/><span>ANILIST</span></label>
-    <div className="anime-results-heading"><h2>{query.trim() ? 'Search results' : 'Trending now'}</h2><span>{busy ? 'Loading…' : `${items.length} titles`}</span></div>
-    {error ? <div className="anime-error"><Clapperboard/><p>{error}</p><a href={STREAM_ORIGIN} target="_blank" rel="noopener noreferrer">Open the Midnight Anime streaming home</a></div> : null}
-    {!error && busy && !items.length ? <div className="anime-loading">Finding your next late-night watch…</div> : null}
-    {!error && !busy && !items.length ? <EmptyState icon={<Search/>} title="No titles found" text="Try another anime title, or browse the streaming home."/> : null}
-    {items.length ? <div className="anime-grid">{items.map((item) => <AnimeCard key={item.id} item={item}/>)}</div> : null}
-    <p className="anime-credit">Anime discovery metadata by AniList. Playback stays on the existing Midnight Anime provider, embedded here; open it separately if the browser blocks embedding.</p>
+  const featured = items[0]
+  return <section className="anime-page tmdb-anime-page">
+    {featured?.backdropPath && !query.trim() && <Link className="tmdb-feature" to={`/reels/anime/${featured.mediaType}/${featured.id}/1/1`} style={{ backgroundImage: `linear-gradient(90deg,rgba(8,8,12,.98),rgba(8,8,12,.72) 48%,rgba(8,8,12,.08)),url(${tmdbImage(featured.backdropPath, 'w1280')})` }}><span className="eyebrow">TONIGHT ON MIDNIGHT ANIME</span><strong>{featured.title}</strong><span className="tmdb-feature-cta">Watch in portrait <Clapperboard size={14}/></span></Link>}
+    <div className="anime-page-top"><PageHeading eyebrow="THE MIDNIGHT ANIME WATCHLIST" title="Find your next series." sub="Search anime, choose an episode, and play it in the Reels-style player."/><span className="tmdb-wordmark">MOVIES & SERIES</span></div>
+    <label className="anime-search"><Search size={18}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search anime titles…" aria-label="Search anime titles"/><span>TMDB</span></label>
+    <div className="anime-results-heading"><h2>{query.trim() ? 'Search results' : 'Popular anime'}</h2><span>{busy ? 'Loading…' : `${items.length} titles`}</span></div>
+    {error && <div className="anime-error"><Clapperboard/><p>{error}</p><span>Check the server-side TMDB_API_KEY setting and try again.</span></div>}
+    {!error && busy && !items.length && <div className="anime-loading">Finding your next late-night watch…</div>}
+    {!error && !busy && !items.length && <EmptyState icon={<Search/>} title="No anime titles found" text="Try another title, or check back in a little while."/>}
+    {items.length > 0 && <div className="tmdb-anime-grid">{items.map((item) => <AnimeCard key={`${item.mediaType}-${item.id}`} item={item}/>)}</div>}
+    <p className="tmdb-credit">Anime titles, descriptions, ratings, posters and backdrops supplied by TMDB. Anime source playback is provided by Midnight Anime.</p>
     <Link className="anime-back-link" to="/profile">Back to your profile</Link>
-  </section>
-}
-
-export function AnimeWatchPage() {
-  const { id, episode } = useParams()
-  const watchUrl = `${STREAM_ORIGIN}/watch/${encodeURIComponent(id)}/${encodeURIComponent(episode)}`
-  return <section className="anime-page anime-watch-page">
-    <div className="anime-page-top">
-      <PageHeading eyebrow="MIDNIGHT ANIME PLAYER" title={`Episode ${episode}`} sub="Playback is provided by the existing Midnight Anime streaming site."/>
-      <Link className="secondary-button anime-home-link" to="/anime"><ArrowUpRight size={15}/> Back to discovery</Link>
-    </div>
-    <div className="anime-player-frame"><iframe src={watchUrl} title={`Midnight Anime episode ${episode}`} allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowFullScreen referrerPolicy="strict-origin-when-cross-origin"/></div>
-    <p className="anime-credit">If playback does not appear, open the official player directly.</p>
-    <a className="anime-open-player" href={watchUrl} target="_blank" rel="noopener noreferrer"><ExternalLink size={15}/> Open official player in a new tab</a>
   </section>
 }

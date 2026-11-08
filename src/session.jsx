@@ -1,26 +1,40 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { onAuthStateChanged, updateProfile } from 'firebase/auth'
-import { get, ref, remove, runTransaction, set, update } from 'firebase/database'
+import { get, onValue, ref, remove, runTransaction, set, update } from 'firebase/database'
 import { auth, db } from './firebase'
 
 const Context = createContext(null)
 export const useSession = () => useContext(Context)
 const OFFICIAL_EMAIL = 'mallaprabesh141@gmail.com'
-const normalizeHandle = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9._]/g, '').replace(/^[._]+/, '').slice(0, 26)
+const PENDING_HANDLE_KEY = 'midnight-anime-pending-signup-handle'
+const normalizeHandle = (value) => String(value || '').trim().replace(/^@+/, '').toLowerCase().replace(/[^a-z0-9._]/g, '').replace(/^[._]+|[._]+$/g, '').slice(0, 30)
+const validHandle = (value) => /^[a-z0-9](?:[a-z0-9._]{1,28}[a-z0-9])$/.test(value)
+
+function pendingSignupHandle() {
+  try { return normalizeHandle(sessionStorage.getItem(PENDING_HANDLE_KEY) || '') } catch { return '' }
+}
 
 async function claimHandle(uid, candidate) {
   const name = normalizeHandle(candidate)
-  if (name.length < 3) return ''
+  if (!validHandle(name)) return ''
   const result = await runTransaction(ref(db, `handleIndex/${name}`), (value) => value == null || value === uid ? uid : undefined)
-  return result.committed ? name : ''
+  return result.committed && result.snapshot?.val() === uid ? name : ''
 }
 
-async function uniqueHandle(uid, candidate) {
+async function claimUniqueHandle(uid, candidate) {
   const base = normalizeHandle(candidate) || 'animefan'
-  const found = await claimHandle(uid, base)
-  if (found) return found
-  const suffix = uid.slice(-5).toLowerCase()
-  return (await claimHandle(uid, `${base.slice(0, 24)}${suffix}`)) || `${base.slice(0, 24)}${suffix}`
+  const suffix = String(uid || '').slice(-7).toLowerCase().replace(/[^a-z0-9]/g, '')
+  const options = [base, `${base.slice(0, 22)}${suffix}`, `fan${suffix}`, `anime${suffix}`]
+  for (const option of [...new Set(options)]) {
+    const claimed = await claimHandle(uid, option)
+    if (claimed) return claimed
+  }
+  return ''
+}
+
+async function releaseHandle(uid, candidate) {
+  const name = normalizeHandle(candidate)
+  if (validHandle(name)) await runTransaction(ref(db, `handleIndex/${name}`), (value) => value === uid ? null : value)
 }
 
 export function SessionProvider({ children }) {
@@ -30,17 +44,22 @@ export function SessionProvider({ children }) {
 
   useEffect(() => {
     let active = true
+    let profileUnsubscribe = null
     const unsubscribe = onAuthStateChanged(auth, async (next) => {
       if (!active) return
+      profileUnsubscribe?.()
+      profileUnsubscribe = null
       setUser(next)
       setLoading(true)
       if (!next) { setProfile(null); setLoading(false); return }
       const official = next.email?.toLowerCase() === OFFICIAL_EMAIL && next.emailVerified
-      const base = normalizeHandle(next.displayName || next.email?.split('@')[0] || 'animefan') || 'animefan'
+      const pending = pendingSignupHandle()
+      const displayBase = next.displayName || next.email?.split('@')[0] || 'Anime fan'
+      const base = normalizeHandle(pending || next.displayName || next.email?.split('@')[0] || 'animefan') || 'animefan'
       const fallbackProfile = {
         uid: next.uid,
-        username: base.length < 3 ? `${base}fan` : base,
-        displayName: next.displayName || next.email?.split('@')[0] || 'Anime fan',
+        username: validHandle(base) ? base : `fan${next.uid.slice(-7).toLowerCase()}`,
+        displayName: displayBase,
         avatar: next.photoURL || '',
         bio: '',
         website: '',
@@ -48,26 +67,39 @@ export function SessionProvider({ children }) {
         ...(official ? { officialBadge: 'gold' } : {}),
         createdAt: Date.now(),
       }
+      profileUnsubscribe = onValue(ref(db, `profiles/${next.uid}`), (snapshot) => {
+        if (active && snapshot.exists()) setProfile(snapshot.val())
+      }, () => {})
+      if (pending) {
+        if (active) setProfile({ ...fallbackProfile, username: pending })
+        setLoading(false)
+        return
+      }
       try {
         const snapshot = await get(ref(db, `profiles/${next.uid}`))
         const current = snapshot.val()
-        let nextProfile = current ? { ...fallbackProfile, ...current, uid: next.uid } : fallbackProfile
+        const nextProfile = current ? { ...fallbackProfile, ...current, uid: next.uid } : fallbackProfile
+        const previousHandle = normalizeHandle(current?.username || '')
+        const requestedHandle = normalizeHandle(pending || current?.username || base)
         try {
-          const claimed = await claimHandle(next.uid, nextProfile.username)
-          if (!claimed && current) console.warn('Handle is already claimed; edit your @handle to claim an available name.')
-          else if (claimed) nextProfile.username = claimed
+          const claimed = await claimUniqueHandle(next.uid, requestedHandle)
+          if (!claimed) throw new Error('No unique handle was available for this account.')
+          nextProfile.username = claimed
+          if (!current) await set(ref(db, `profiles/${next.uid}`), nextProfile)
+          else if (claimed !== previousHandle) {
+            await update(ref(db, `profiles/${next.uid}`), { username: claimed, updatedAt: Date.now() })
+            if (previousHandle) await releaseHandle(next.uid, previousHandle).catch(() => {})
+          }
         } catch (handleError) {
-          console.warn('Handle index is not available yet:', handleError.code || handleError.message)
+          console.warn('Handle index is not available; apply the database rules before editing handles:', handleError.code || handleError.message)
         }
-        if (official) nextProfile.officialBadge = 'gold'
-        if (!current) {
-          try { await set(ref(db, `profiles/${next.uid}`), nextProfile) }
-          catch (writeError) { console.warn('Profile bootstrap was deferred:', writeError.code || writeError.message) }
-        } else if (official && current.officialBadge !== 'gold') {
+        if (official && current?.officialBadge !== 'gold') {
+          nextProfile.officialBadge = 'gold'
           try { await update(ref(db, `profiles/${next.uid}`), { officialBadge: 'gold' }) }
           catch (writeError) { console.warn('Official badge sync was deferred:', writeError.code || writeError.message) }
-        } else if (!official && current.officialBadge === 'gold') {
-          try { await remove(ref(db, `profiles/${next.uid}/officialBadge`)); delete nextProfile.officialBadge }
+        } else if (!official && current?.officialBadge === 'gold') {
+          delete nextProfile.officialBadge
+          try { await remove(ref(db, `profiles/${next.uid}/officialBadge`)) }
           catch (writeError) { console.warn('Official badge removal was deferred:', writeError.code || writeError.message) }
         }
         if (active) setProfile(nextProfile)
@@ -78,11 +110,11 @@ export function SessionProvider({ children }) {
         if (active) setLoading(false)
       }
     })
-    return () => { active = false; unsubscribe() }
+    return () => { active = false; profileUnsubscribe?.(); unsubscribe() }
   }, [])
 
   async function saveProfile(patch) {
-    if (!user) throw new Error('Sign in first')
+    if (!user) throw new Error('Sign in first.')
     const next = { ...profile, ...patch, uid: user.uid, updatedAt: Date.now() }
     await update(ref(db, `profiles/${user.uid}`), patch)
     if (patch.displayName && patch.displayName !== user.displayName) {

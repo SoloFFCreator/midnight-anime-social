@@ -6,6 +6,7 @@ import {
   getRedirectResult,
   sendEmailVerification,
   sendPasswordResetEmail,
+  signOut,
   signInWithEmailAndPassword,
   signInWithPopup,
   signInWithRedirect,
@@ -17,8 +18,9 @@ import { BrandMark } from './ui.jsx'
 import { ArrowLeft, ArrowRight, Eye, EyeOff, Mail, Lock, UserRound } from 'lucide-react'
 
 const OFFICIAL_EMAIL = 'mallaprabesh141@gmail.com'
-const normalizeHandle = (value) => value.trim().replace(/^@+/, '').toLowerCase()
-const validHandle = (value) => /^[a-z0-9][a-z0-9._]{2,29}$/.test(value)
+const PENDING_HANDLE_KEY = 'midnight-anime-pending-signup-handle'
+const normalizeHandle = (value) => value.trim().replace(/^@+/, '').toLowerCase().replace(/^[._]+|[._]+$/g, '')
+const validHandle = (value) => /^[a-z0-9](?:[a-z0-9._]{1,28}[a-z0-9])$/.test(value)
 
 function friendlyError(error, method = 'email') {
   const code = error?.code || ''
@@ -31,6 +33,7 @@ function friendlyError(error, method = 'email') {
   if (code === 'auth/popup-closed-by-user') return 'The Google sign-in window was closed before it finished.'
   if (code === 'auth/network-request-failed') return 'A network error interrupted sign-in. Check your connection and try again.'
   if (error?.message === 'HANDLE_TAKEN') return 'That @handle is already in use. Choose another one.'
+  if (/PERMISSION_DENIED|permission.denied/i.test(`${code} ${error?.message || ''}`)) return 'Firebase Realtime Database rules rejected the handle or profile write. Apply the reviewed database.rules.json to the mid-night-anime project, then try again.'
   return error?.message || 'Something went wrong. Please try again.'
 }
 
@@ -94,13 +97,16 @@ export default function AuthScreen() {
       }
       const cleanHandle = normalizeHandle(handle)
       if (!displayName.trim()) throw new Error('Add your name so people know who they are meeting.')
-      if (!validHandle(cleanHandle)) throw new Error('Your @handle must be 3–30 characters and use letters, numbers, dots or underscores.')
+      if (!validHandle(cleanHandle)) throw new Error('Your @handle must be 3–30 characters, start and end with a letter or number, and use only letters, numbers, dots or underscores.')
       if (password.length < 8) throw new Error('Choose a password with at least 8 characters.')
+      try { sessionStorage.setItem(PENDING_HANDLE_KEY, cleanHandle) } catch { /* the profile bootstrap will still choose a unique fallback */ }
       const credential = await createUserWithEmailAndPassword(auth, email.trim(), password)
+      let claimedHandle = false
       try {
         await updateProfile(credential.user, { displayName: displayName.trim() })
         const claim = await runTransaction(ref(db, `handleIndex/${cleanHandle}`), (value) => value == null || value === credential.user.uid ? credential.user.uid : undefined)
-        if (!claim.committed) throw new Error('HANDLE_TAKEN')
+        if (!claim.committed || claim.snapshot?.val() !== credential.user.uid) throw new Error('HANDLE_TAKEN')
+        claimedHandle = true
         const officialBadge = credential.user.email?.toLowerCase() === OFFICIAL_EMAIL && credential.user.emailVerified ? 'gold' : ''
         await set(ref(db, `profiles/${credential.user.uid}`), {
           uid: credential.user.uid,
@@ -114,9 +120,8 @@ export default function AuthScreen() {
           createdAt: Date.now(),
         })
       } catch (profileError) {
-        if (profileError.message === 'HANDLE_TAKEN') {
-          try { await deleteUser(credential.user) } catch { /* retain the signed-in account if cleanup needs a fresh login */ }
-        }
+        if (claimedHandle) await runTransaction(ref(db, `handleIndex/${cleanHandle}`), (value) => value === credential.user.uid ? null : value).catch(() => {})
+        try { await deleteUser(credential.user) } catch { try { await signOut(auth) } catch { /* keep the original setup error for the user */ } }
         throw profileError
       }
       try { await sendEmailVerification(credential.user) } catch { /* optional verification email should not block account creation */ }
@@ -124,6 +129,7 @@ export default function AuthScreen() {
     } catch (e) {
       setError(friendlyError(e, 'email'))
     } finally {
+      try { sessionStorage.removeItem(PENDING_HANDLE_KEY) } catch { /* optional browser storage */ }
       setBusy(false)
     }
   }
@@ -151,7 +157,7 @@ export default function AuthScreen() {
               <span className="auth-input-wrap"><UserRound size={16}/><input autoComplete="name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Your name" required /></span>
             </label>
             <label className="auth-label">Username
-              <span className="auth-input-wrap"><span className="auth-at">@</span><input autoComplete="username" value={handle} onChange={(e) => setHandle(e.target.value)} placeholder="your.handle" maxLength={31} required /></span>
+              <span className="auth-input-wrap"><span className="auth-at">@</span><input autoComplete="username" value={handle} onChange={(e) => setHandle(e.target.value)} placeholder="your.handle" maxLength={30} required /></span>
             </label>
           </>}
           <label className="auth-label">Email

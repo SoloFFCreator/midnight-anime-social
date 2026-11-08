@@ -2,25 +2,27 @@
 
 ## Implemented in the repository
 
-- [x] Reuse the original Midnight Anime logo and dark/orange interface; adapt the supplied mobile screenshots for social navigation and interactions.
-- [x] Use the supplied gold and blue badge art. Gold is reserved for verified `mallaprabesh141@gmail.com`; blue is derived from a follower count of at least 1,000 and is not user-editable.
-- [x] Provide Firebase email/password sign-in, Google sign-in, signup, verification-email dispatch, password reset, and clear provider/domain errors.
-- [x] Provide editable profile photo, display name, unique handle, bio, pronouns and website.
-- [x] Provide Reels upload/playback, like, comment, share and save; store only R2 object keys in Firebase.
-- [x] Provide feed, Explore, 24-hour Stories, notifications, profile pages, saved items and direct messages.
-- [x] Add a searchable/trending anime directory using AniList metadata and an in-app embedded player using the existing Midnight Anime `/watch/{anilistId}/{episode}` route, with a new-tab fallback.
-- [x] Deploy the private R2 Worker at `https://midnight-anime-social-media.soloffofficial-83a.workers.dev`; set the live Vercel project's `VITE_R2_WORKER_URL` for all deployment targets. The unauthenticated Worker check correctly returns `Sign in required`.
-- [x] Add Firebase Realtime Database rules for owner-scoped profile/content changes, handle claims, eligible badge state, private saves, and explicit two-party chat membership.
-- [x] Document architecture, setup, deployment and migration steps in `README.md`.
+- [x] Preserve the original Midnight Anime logo, dark/orange visual system, supplied social interface references, and supplied gold/blue verification artwork.
+- [x] Provide Firebase Google/email-password sign-in, signup, email verification, password reset, editable profile details and atomic lowercase unique-handle claim/repair.
+- [x] Provide the Firebase-backed feed, Explore, 24-hour Stories, notifications, private DMs, profiles, follows, likes, comments and saved media.
+- [x] Provide private-R2 uploads and social Reels with custom browser-controls-free previews/playback and like/comment/share/save actions.
+- [x] Prepare owner-scoped Realtime Database rules that allow an authenticated owner to create their own public post, Story or Reel, while protecting profile ownership, handle uniqueness, social interactions, direct-message membership and official-badge eligibility.
+- [x] Replace anime discovery with TMDB search and TMDB poster/backdrop art through a server-side route. The `TMDB_API_KEY` is configured encrypted/server-only on the production social Vercel project.
+- [x] Resolve selected TMDB/IMDb episode identifiers through the same Nuvio provider integration as the original Midnight Anime project; use a custom portrait 9:16 HLS/MP4 player, source/audio/episode selectors, social like/comment/share/save, and a host-restricted media proxy.
+- [x] Add actionable Firebase `PERMISSION_DENIED` guidance in post, Story, Reel, profile and signup flows.
+- [x] Deploy the private-media Worker and configure `VITE_R2_WORKER_URL` on the social Vercel project. An unauthenticated Worker request correctly returns `Sign in required`.
 
-## Required live setup / verification
+## Live configuration and verification still required
 
-- [ ] In Firebase Authentication, confirm both **Email/Password** and **Google** providers are enabled and that `social.midnightanime.bond` is authorized. These provider toggles cannot be confirmed from repository code.
-- [ ] Review and apply `database.rules.json` in the correct Firebase project. Existing chats need the two participant UIDs backfilled into `/chats/{chatId}/participants` before applying the stricter chat rule if those conversations must be preserved.
-- [ ] From the deployed app, sign in with a test account and complete an authenticated image/video upload, profile photo update, Reel playback, follow/unfollow, comment/save, and new DM test. The Worker no-token check is verified; a full signed-in browser upload has not been performed.
-- [ ] Sign in as `mallaprabesh141@gmail.com` with a verified Firebase email and confirm the gold badge appears on that profile.
+- [x] Parse and behavior-test the Realtime Database rules in the Firebase emulator: owner publishing, duplicate handles, other-user likes/comments, official badge eligibility, and new/legacy two-person DMs.
+- [ ] Review and apply the current [`database.rules.json`](./database.rules.json) to the correct `mid-night-anime` Realtime Database. The new rules are in the repo but Firebase Console rules are not automatically changed by a Git push.
+- [x] Existing two-member direct-message records remain supported without migration; new conversations use the explicit `a`/`b` member format.
+- [ ] Confirm Email/Password and Google providers are enabled and `social.midnightanime.bond` is authorized in Firebase Authentication.
+- [ ] After the latest Vercel deploy, sign in with a test account and verify photo/video Post, Story and Reel publication; duplicate-handle rejection; profile photo/handle updates; reactions/saves/comments; a new DM; and an actual TMDB/Nuvio provider stream.
+- [ ] Authenticate as `mallaprabesh141@gmail.com` with a verified email and confirm the gold badge. Confirm the blue badge at 1,000 follower entries.
+- [ ] Perform an authenticated image/video upload and read from the private R2 Worker end to end; the unauthenticated guard alone does not verify the complete media flow.
 
 ## Later production hardening
 
 - [ ] Add abuse reporting/moderation, server-side rate limits and quotas, account deletion, and monitoring before broad public sign-ups.
-- [ ] Add multipart R2 uploads if video files beyond the current single-PUT limit are required.
+- [ ] Add multipart R2 upload if large files beyond the current single-object upload limit are required.
