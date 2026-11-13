@@ -4,7 +4,7 @@ A mobile-first anime community app paired with the Midnight Anime streaming prod
 
 ## Product features
 
-The app supports Google and email/password authentication, registration, email verification, password reset, editable profiles and unique `@handles`; a Firebase-backed feed, Explore, Stories, notifications, private messages and saved items; and short-form social Reels with likes, comments, share links and private AWS S3 uploads. Gold verification is reserved for the verified `mallaprabesh141@gmail.com` account; the blue community badge is derived from at least 1,000 follower entries and is not editable by the user.
+The app supports Google and email/password authentication, registration, email verification, password reset, editable profiles and unique `@handles`; a Firebase-backed feed, Explore, Stories, notifications, private messages and saved items; and short-form social Reels with likes, comments, share links and private AWS S3/Cloudflare R2 uploads. Gold verification is reserved for the verified `mallaprabesh141@gmail.com` account; the blue community badge is derived from at least 1,000 follower entries and is not editable by the user.
 
 Anime discovery is powered by TMDB search, posters and backdrops. From a title, open an episode directly in a portrait 9:16 Reels-style player. Episode playback calls the same Nuvio stream-provider integration used by the original Midnight Anime codebase ([SoloFFCreator/midnight-anime](https://github.com/SoloFFCreator/midnight-anime)). The player handles provider HLS/MP4 sources with custom controls and does not use native browser video controls or an iframe to the streaming homepage. TMDB data/artwork attribution appears in the directory. Availability depends on the selected provider returning a compatible source.
 
@@ -20,11 +20,11 @@ src/
   AnimePage.jsx                TMDB anime discovery, posters and backdrops
   AnimeReelPlayer.jsx          Portrait episode experience using provider streams
   StreamPlayer.jsx             Custom HLS/MP4 playback via hls.js
-  media.js                     Shared authenticated AWS S3 upload helper
+  media.js                     Shared authenticated AWS S3/R2 adaptive upload helper
   api/tmdb.js, api/nuvio.js     Browser clients for same-origin service routes
 api/
   anime-catalog.js             Server-side TMDB catalog/details proxy
-  aws-media.js                 Firebase-authenticated AWS S3 URL signer
+  aws-media.js                 Firebase-authenticated AWS S3 URL signer using Vercel OIDC
   hindi-stream.js              Nuvio provider stream resolver
   megavid-proxy.js             Host-restricted HLS playlist/media proxy
 worker/
@@ -34,11 +34,11 @@ database.rules.json            Reviewable Realtime Database authorization rules
 public/badges/                 Gold and blue badge artwork from the supplied ZIP
 ```
 
-Firebase Realtime Database stores profile metadata and social records. New social uploads (posts, Stories, Reels and profile photos) use a private AWS S3 bucket from the Vercel AWS integration. The same-origin `/api/aws-media` function verifies Firebase ID tokens and issues short-lived S3 upload/read URLs using Vercel's OIDC role credentials; long-lived AWS keys are not stored in source or sent to the browser. New object keys use the `aws/<uid>/…` prefix. Existing media keys in Cloudflare R2 remain readable through the existing Worker, so existing posts and profiles do not need a migration.
+Firebase Realtime Database stores profile metadata and social records. New social uploads (posts, Stories, Reels and profile photos) use whichever private backend has recently uploaded fastest: AWS S3 through Vercel OIDC or the existing Cloudflare R2 Worker. The client remembers only successful upload latency as a preference, tries the preferred backend first and falls back to the other on failure. S3 keys use `aws/<uid>/…`; R2 keys use `<uid>/…`. Both providers remain private and existing R2 media stays readable.
 
-The Vercel project `midnight-anime-social-7u58`, which owns `https://social.midnightanime.bond`, has AWS integration variables for `AWS_ROLE_ARN`, `AWS_REGION` and `S3_BUCKET_NAME`. The route uses the official Vercel AWS OIDC credential provider. To upload directly from a browser, the S3 bucket CORS policy must allow `PUT`, `GET` and `HEAD` from `https://social.midnightanime.bond` and local development, and allow the `Content-Type` header. Keep the bucket private; do not grant public object access. The signing API only generates authenticated short-lived object URLs and checks Firebase publication references for non-owner reads.
+The Vercel project `midnight-anime-social-7u58`, which owns `https://social.midnightanime.bond`, has AWS integration variables for `AWS_ROLE_ARN`, `AWS_REGION` and `S3_BUCKET_NAME`. The route uses the official Vercel AWS OIDC credential provider with the AWS STS audience `https://sts.amazonaws.com` (the scheme is required). To upload directly from a browser, the S3 bucket CORS policy must allow `POST`, `GET` and `HEAD` from `https://social.midnightanime.bond` and local development. Keep the bucket private; do not grant public object access. The signing API only generates authenticated short-lived object URLs and checks Firebase publication references for non-owner reads. If AWS still reports `The web identity token provided could not be validated`, verify the deployed function uses `https://sts.amazonaws.com` as its token audience and that the AWS IAM OIDC provider and role trust policy allow the Vercel role subject for this project/environment.
 
-`VITE_R2_WORKER_URL` and the dedicated private `midnight-anime-social` R2 bucket are retained for compatibility with media already uploaded before the AWS switch. The Worker remains configured at `https://midnight-anime-social-media.soloffofficial-83a.workers.dev`; older R2 object reads continue to use its Firebase-token checks. New uploads must go through `/api/aws-media` and should not be sent to the R2 Worker.
+`VITE_R2_WORKER_URL` and the dedicated private `midnight-anime-social` R2 bucket are configured for upload fallback and reads. The Worker remains at `https://midnight-anime-social-media.soloffofficial-83a.workers.dev` and uses Firebase-token checks. Its configured `ALLOWED_ORIGINS` must include the production site (and local origin when needed). S3 and R2 uploads use their separate authenticated signing endpoints and keys are routed to the corresponding store when read.
 ## Run locally
 
 ```bash
@@ -47,7 +47,7 @@ cp .env.example .env.local
 npx vercel dev
 ```
 
-Vercel CLI's local server runs the app plus `/api/anime-catalog`, `/api/aws-media`, `/api/hindi-stream` and `/api/megavid-proxy`. Local AWS uploads require the Vercel AWS OIDC environment to be available to the local function runtime; production uploads use the project's linked AWS integration. Firebase web identifiers in `.env.example` are public client configuration, not admin credentials. Replace the TMDB placeholder with a real server-side `TMDB_API_KEY` in `.env.local`; do not put TMDB, Firebase Admin, Cloudflare or R2 secrets in `VITE_*` variables or source control. `VITE_R2_WORKER_URL` may point at the deployed Worker for legacy R2 reads; add `http://localhost:5173` to its allowlist when testing those legacy objects locally.
+Vercel CLI's local server runs the app plus `/api/anime-catalog`, `/api/aws-media`, `/api/hindi-stream` and `/api/megavid-proxy`. Local AWS uploads require the Vercel AWS OIDC environment; if that exchange is unavailable, uploads can fall back to the configured R2 Worker. Firebase web identifiers in `.env.example` are public client configuration, not admin credentials. Replace the TMDB placeholder with a real server-side `TMDB_API_KEY` in `.env.local`; do not put TMDB, Firebase Admin, Cloudflare or R2 secrets in `VITE_*` variables or source control. `VITE_R2_WORKER_URL` must point to the deployed Worker for R2 uploads/reads and its origin allowlist must include any local dev origin.
 
 ## Firebase setup and the post/Story permission error
 
@@ -73,9 +73,11 @@ New uploads use the Vercel-linked private AWS S3 bucket. Configure its CORS poli
 ]
 ```
 
-Cloudflare R2 remains as legacy storage for older media. Its Worker still verifies Firebase ID tokens and signs private object reads for existing R2 keys. The Worker and `VITE_R2_WORKER_URL` are already configured. New uploads use AWS S3 instead.
+In Cloudflare, keep the R2 bucket private and add a bucket CORS policy that allows the site and local origin to use `PUT`, `GET` and `HEAD`, with `AllowedHeaders: ["*"]`. The worker's own `ALLOWED_ORIGINS` must include the site origin for its authenticated signing endpoint.
 
-The current AWS upload uses a policy-signed S3 POST with a server-enforced file-size range, supports single objects up to 5 GB, and preserves the original uploaded media bytes (including any audio track). Multipart upload is not implemented. S3 CORS must be configured before browser uploads can succeed.
+Cloudflare R2 remains available for older media and as the adaptive upload fallback. Its Worker still verifies Firebase ID tokens and signs private object reads/uploads. The Worker and `VITE_R2_WORKER_URL` are already configured; new media keys identify which private store to use on reads.
+
+AWS uploads use policy-signed S3 POST with a server-enforced size range, support single objects up to 5 GB, and preserve the uploaded bytes (including audio). Multipart upload is not implemented. R2 is attempted if the last-faster provider is unavailable, and vice versa; configure both private stores and their own CORS/origin rules before relying on fallback.
 
 ## TMDB and Nuvio configuration
 

@@ -61,6 +61,7 @@ export default function InstagramVideo({ src, poster = '', autoPlay = false, loo
     setMuted(next)
     if (videoRef.current) {
       videoRef.current.muted = next
+      if (!next) videoRef.current.volume = 1
       if (!next && videoRef.current.paused) videoRef.current.play().catch(() => setPlaying(false))
     }
   }

@@ -25,7 +25,8 @@ function getS3Client() {
   if (!s3Client) {
     s3Client = new S3Client({
       region,
-      credentials: awsCredentialsProvider({ audience: 'sts.amazonaws.com', roleArn }),
+      // AWS STS validates this exact audience claim for AssumeRoleWithWebIdentity.
+      credentials: awsCredentialsProvider({ audience: 'https://sts.amazonaws.com', roleArn }),
     })
   }
   return s3Client

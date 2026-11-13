@@ -5,7 +5,7 @@ import { db } from './firebase'
 import { NuvioApi } from './api/nuvio.js'
 import { TMDBApi, tmdbImage } from './api/tmdb.js'
 import StreamPlayer from './StreamPlayer.jsx'
-import { ArrowLeft, Bookmark, Check, ChevronDown, Clapperboard, Heart, MessageCircle, Send, X } from 'lucide-react'
+import { ArrowLeft, AudioLines, Bookmark, Check, Clapperboard, Heart, MessageCircle, Send, X } from 'lucide-react'
 
 export default function AnimeReelPlayer({ user }) {
   const { mediaType: routeType, id, season: routeSeason, episode: routeEpisode } = useParams()
@@ -32,6 +32,11 @@ export default function AnimeReelPlayer({ user }) {
   const [actionMessage, setActionMessage] = useState('')
   const touchStartY = useRef(null)
   const lastWheelStep = useRef(0)
+  const lastTapAt = useRef(0)
+  const swipeTimer = useRef(null)
+  const burstTimer = useRef(null)
+  const [swipeDirection, setSwipeDirection] = useState('')
+  const [likeBurst, setLikeBurst] = useState(false)
 
   const episodeKey = `${mediaType}_${id}_s${season}_e${episode}`
   const route = `/reels/anime/${mediaType}/${id}/${season}/${episode}`
@@ -42,7 +47,7 @@ export default function AnimeReelPlayer({ user }) {
   const title = details?.name || details?.title || 'Midnight Anime'
   const poster = tmdbImage(details?.poster_path, 'w780')
   const backdrop = tmdbImage(details?.backdrop_path, 'w1280')
-  const episodeLabel = mediaType === 'movie' ? 'Full movie' : `${selectedSeason?.name || `Season ${season}`} · Episode ${episode}`
+  const episodeLabel = mediaType === 'movie' ? 'Full movie' : `Episode ${episode}`
 
   useEffect(() => {
     let alive = true
@@ -77,6 +82,12 @@ export default function AnimeReelPlayer({ user }) {
     window.addEventListener('keydown', closeOnEscape)
     return () => window.removeEventListener('keydown', closeOnEscape)
   }, [showComments])
+  useEffect(() => () => { window.clearTimeout(swipeTimer.current); window.clearTimeout(burstTimer.current) }, [])
+  useEffect(() => {
+    if (!swipeDirection) return undefined
+    const timer = window.setTimeout(() => setSwipeDirection(''), 420)
+    return () => window.clearTimeout(timer)
+  }, [swipeDirection])
   useEffect(() => onValue(ref(db, `saved/${user.uid}/anime_${episodeKey}`), (snapshot) => setSaved(Boolean(snapshot.val())), () => {}), [episodeKey, user.uid])
 
   useEffect(() => {
@@ -114,24 +125,52 @@ export default function AnimeReelPlayer({ user }) {
     if (previousSeason) changeEpisode(previousSeason.season_number, previousSeason.episode_count || 1)
   }
   function handleTouchStart(event) {
-    if (event.target.closest('button, a, select, input, textarea')) return
+    if (event.target.closest('button, a, select, input, textarea, .anime-reel-actions')) return
     touchStartY.current = event.touches[0]?.clientY ?? null
   }
   function handleTouchEnd(event) {
-    if (touchStartY.current == null) return
+    if (touchStartY.current == null) {
+      if (event.target.closest('button, a, select, input, textarea, .anime-reel-actions')) return
+      const now = Date.now()
+      if (now - lastTapAt.current < 300) { lastTapAt.current = 0; likeFromGesture() }
+      else lastTapAt.current = now
+      return
+    }
     const delta = touchStartY.current - (event.changedTouches[0]?.clientY ?? touchStartY.current)
     touchStartY.current = null
-    if (Math.abs(delta) > 65) stepEpisode(delta > 0 ? 1 : -1)
+    if (Math.abs(delta) > 65) { swipeToEpisode(delta > 0 ? 1 : -1); return }
+    const now = Date.now()
+    if (now - lastTapAt.current < 300) { lastTapAt.current = 0; likeFromGesture() }
+    else lastTapAt.current = now
   }
   function handleWheel(event) {
     if (Math.abs(event.deltaY) < 45 || Date.now() - lastWheelStep.current < 700) return
     lastWheelStep.current = Date.now()
-    stepEpisode(event.deltaY > 0 ? 1 : -1)
+    swipeToEpisode(event.deltaY > 0 ? 1 : -1)
+  }
+  function swipeToEpisode(direction) {
+    if (mediaType === 'movie') return
+    const seasonIndex = seasonList.findIndex((item) => Number(item.season_number) === season)
+    const canMove = direction > 0 ? episode < episodeCount || Boolean(seasonList[seasonIndex + 1]) : episode > 1 || Boolean(seasonList[seasonIndex - 1])
+    if (!canMove) return
+    setSwipeDirection(direction > 0 ? 'up' : 'down')
+    window.clearTimeout(swipeTimer.current)
+    swipeTimer.current = window.setTimeout(() => stepEpisode(direction), 95)
   }
   async function toggleLike() {
     const path = `animeReels/${episodeKey}/likes/${user.uid}`
     try { if (liked) await remove(ref(db, path)); else await set(ref(db, path), true) }
     catch { setActionMessage('Firebase rules must allow the animeReels like path before this reaction can be saved.') }
+  }
+  function likeFromGesture() {
+    setLikeBurst(true)
+    window.clearTimeout(burstTimer.current)
+    burstTimer.current = window.setTimeout(() => setLikeBurst(false), 850)
+    if (!liked) set(ref(db, `animeReels/${episodeKey}/likes/${user.uid}`), true).catch(() => setActionMessage('Firebase rules must allow the animeReels like path before this reaction can be saved.'))
+  }
+  function cycleAudio() {
+    const choices = ['sub', 'dub', 'hindi']
+    setAudio(choices[(choices.indexOf(audio) + 1) % choices.length])
   }
   async function toggleSave() {
     const path = `saved/${user.uid}/anime_${episodeKey}`
@@ -166,17 +205,15 @@ export default function AnimeReelPlayer({ user }) {
     {details && <>
       <div className="anime-reel-layout">
         <div className="anime-reel-stage" style={backdrop ? { backgroundImage: `linear-gradient(180deg,rgba(6,6,9,.12),rgba(6,6,9,.78)),url(${backdrop})` } : undefined}>
-          <div className="anime-reel-frame" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} onWheel={handleWheel}>
+          <div className={`anime-reel-frame ${swipeDirection ? `swipe-${swipeDirection}` : ''}`} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} onWheel={handleWheel} onDoubleClick={(event) => { if (!event.target.closest('button, a, select, input, textarea')) likeFromGesture() }}>
             {source ? <StreamPlayer key={`${source.id}-${retry}`} source={source} poster={poster} onRetry={() => setRetry((value) => value + 1)}/> : <div className="anime-provider-wait">{resolving ? <><span className="spinner"/><b>Finding a provider source…</b><small>{title} · {episodeLabel}</small></> : <><Clapperboard size={26}/><b>Episode source unavailable</b><small>{providerError || 'Try another audio track or retry in a moment.'}</small><button className="secondary-button" type="button" onClick={() => setRetry((value) => value + 1)}>Retry provider</button></>}</div>}
-            <div className="anime-reel-overlay"><div className="anime-reel-title"><span>TMDB · {mediaType === 'movie' ? 'FILM' : 'SERIES'}</span><b>{title}</b><small>{episodeLabel}</small></div><div className="anime-reel-actions"><button className={liked ? 'is-liked' : ''} type="button" onClick={toggleLike} aria-label={liked ? 'Unlike episode' : 'Like episode'}><Heart fill={liked ? 'currentColor' : 'none'}/><span>{likes.toLocaleString()}</span></button><button type="button" onClick={() => setShowComments((value) => !value)} aria-label="Show episode comments"><MessageCircle/><span>{comments.length.toLocaleString()}</span></button><button type="button" onClick={shareEpisode} aria-label="Share episode"><Send/><span>Share</span></button><button className={saved ? 'is-saved' : ''} type="button" onClick={toggleSave} aria-label={saved ? 'Unsave episode' : 'Save episode'}>{saved ? <Check/> : <Bookmark/>}<span>{saved ? 'Saved' : 'Save'}</span></button></div></div>
+            <div className="anime-reel-overlay"><div className="anime-reel-title"><span>TMDB · {mediaType === 'movie' ? 'FILM' : 'SERIES'}</span><b>{title}</b><small>{episodeLabel}</small></div><div className="anime-reel-actions"><button className="anime-audio-cycle" type="button" onClick={cycleAudio} aria-label={`Audio: ${audio === 'sub' ? 'subtitles' : audio === 'dub' ? 'dubbed' : 'Hindi'}. Tap to change`} title="Tap to cycle Sub, Dub and Hindi"><AudioLines/><span>{audio === 'sub' ? 'SUB' : audio === 'dub' ? 'DUB' : 'HIN'}</span></button><button className={liked ? 'is-liked' : ''} type="button" onClick={toggleLike} aria-label={liked ? 'Unlike episode' : 'Like episode'}><Heart fill={liked ? 'currentColor' : 'none'}/><span>{likes.toLocaleString()}</span></button><button type="button" onClick={() => setShowComments((value) => !value)} aria-label="Show episode comments"><MessageCircle/><span>{comments.length.toLocaleString()}</span></button><button type="button" onClick={shareEpisode} aria-label="Share episode"><Send/><span>Share</span></button><button className={saved ? 'is-saved' : ''} type="button" onClick={toggleSave} aria-label={saved ? 'Unsave episode' : 'Save episode'}>{saved ? <Check/> : <Bookmark/>}<span>{saved ? 'Saved' : 'Save'}</span></button></div></div>
+            {likeBurst && <div className="anime-like-burst" aria-hidden="true"><Heart fill="currentColor"/></div>}
             {mediaType !== 'movie' && episode < episodeCount && <span className="anime-swipe-hint">Swipe up for next episode</span>}
           </div>
         </div>
         <aside className="anime-reel-sidebar">
           <div className="anime-title-card">{poster && <img src={poster} alt={`${title} poster`}/>}<div><span className="eyebrow">NOW PLAYING</span><h2>{title}</h2><p>{details.overview || 'Choose an episode and enjoy the story.'}</p></div></div>
-          {mediaType !== 'movie' && <div className="anime-episode-chooser"><label>Season<span className="select-wrap"><select value={selectedSeason?.season_number || season} onChange={(event) => changeEpisode(event.target.value, 1)}>{seasonList.map((item) => <option key={item.season_number} value={item.season_number}>{item.name || `Season ${item.season_number}`}</option>)}</select><ChevronDown size={15}/></span></label><label>Episode<span className="select-wrap"><select value={Math.min(episode, episodeCount || 1)} onChange={(event) => changeEpisode(season, event.target.value)}>{Array.from({ length: Math.max(1, episodeCount) }, (_, index) => <option key={index + 1} value={index + 1}>Episode {index + 1}</option>)}</select><ChevronDown size={15}/></span></label></div>}
-          <label className="anime-audio-select">Audio track<span className="select-wrap"><select value={audio} onChange={(event) => setAudio(event.target.value)}><option value="sub">Subtitled</option><option value="dub">Dubbed</option><option value="hindi">Hindi</option></select><ChevronDown size={15}/></span></label>
-          {streams.length > 1 && <label className="anime-audio-select">Provider source<span className="select-wrap"><select value={source?.id || ''} onChange={(event) => setSourceId(event.target.value)}>{streams.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.quality}</option>)}</select><ChevronDown size={15}/></span></label>}
         </aside>
       </div>
       {actionMessage && <p className="provider-error-note" role="status">{actionMessage}</p>}

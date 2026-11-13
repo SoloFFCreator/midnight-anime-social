@@ -74,7 +74,7 @@ export default function ProfileEditor({ user, profile, onClose }) {
         <div className="profile-field-pair"><label>Pronouns<input value={pronouns} onChange={(e) => setPronouns(e.target.value)} maxLength={40} placeholder="Optional" /></label><label>Website<input type="url" value={website} onChange={(e) => setWebsite(e.target.value)} maxLength={200} placeholder="https://…" /></label></div>
       </div>
       {error && <p className="auth-error" role="alert">{error}</p>}{progress && <p className="upload-progress">{progress}</p>}
-      <footer className="profile-edit-foot"><span className="muted tiny">Your profile photo is stored in private AWS S3.</span><button className="primary-button" disabled={busy}>{busy ? 'Saving…' : 'Save changes'}</button></footer>
+      <footer className="profile-edit-foot"><span className="muted tiny">Your photo uses the faster private AWS S3/R2 storage available.</span><button className="primary-button" disabled={busy}>{busy ? 'Saving…' : 'Save changes'}</button></footer>
     </form>
   </div>
 }

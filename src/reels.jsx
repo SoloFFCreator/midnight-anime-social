@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { onValue, push, ref, remove, set, update } from 'firebase/database'
 import { db } from './firebase'
@@ -17,7 +17,7 @@ export function ReelsPage({ user, profile, profiles, reels }) {
   }, [requestedId, reels.length])
   return <section className="reels-page">
     <div className="reels-heading"><div><PageHeading eyebrow="SHORT-FORM FAN MOMENTS" title="Reels" sub="A quick scroll through your fandom."/><Link className="text-link anime-reels-entry" to="/anime"><Clapperboard size={14}/> Watch anime episodes as Reels ↗</Link></div><button className="primary-button reel-create-button" onClick={() => setShowUpload(true)}><Plus size={16}/> Create Reel</button></div>
-    {reels.length ? <div className="reels-feed">{reels.map((item) => <ReelCard key={item.id} reel={item} user={user} profile={profile} profiles={profiles}/>)}</div> : <div className="reels-empty"><EmptyState icon={<Clapperboard/>} title="The Reel is yours to make" text="Share a short video from your anime world. Your clips stay in private AWS S3 and stream through short-lived links."/><button className="primary-button" onClick={() => setShowUpload(true)}><Plus size={16}/> Upload your first Reel</button></div>}
+    {reels.length ? <div className="reels-feed">{reels.map((item) => <ReelCard key={item.id} reel={item} user={user} profile={profile} profiles={profiles}/>)}</div> : <div className="reels-empty"><EmptyState icon={<Clapperboard/>} title="The Reel is yours to make" text="Share a short video from your anime world. It uses the faster private AWS S3 or Cloudflare R2 storage available."/><button className="primary-button" onClick={() => setShowUpload(true)}><Plus size={16}/> Upload your first Reel</button></div>}
     {showUpload && <ReelUploadModal user={user} profile={profile} onClose={() => setShowUpload(false)}/>}
   </section>
 }
@@ -33,6 +33,10 @@ function ReelCard({ reel, user, profile, profiles }) {
   const [muted, setMuted] = useState(true)
   const [playing, setPlaying] = useState(true)
   const [following, setFollowing] = useState(false)
+  const lastTapAt = useRef(0)
+  const singleTapTimer = useRef(null)
+  const burstTimer = useRef(null)
+  const [likeBurst, setLikeBurst] = useState(false)
   const author = profiles.find((item) => item.uid === reel.authorId) || {}
 
   useEffect(() => {
@@ -58,10 +62,34 @@ function ReelCard({ reel, user, profile, profiles }) {
     observer.observe(el)
     return () => observer.disconnect()
   }, [reel.id, src])
+  useEffect(() => () => { window.clearTimeout(singleTapTimer.current); window.clearTimeout(burstTimer.current) }, [])
 
   async function toggleLike() {
     const path = `reels/${reel.id}/likes/${user.uid}`
     try { if (liked) await remove(ref(db, path)); else await set(ref(db, path), true) } catch { /* RTDB rules report unavailable interactions without breaking playback */ }
+  }
+  function likeFromGesture() {
+    if (!liked) set(ref(db, `reels/${reel.id}/likes/${user.uid}`), true).catch(() => {})
+    setLikeBurst(true)
+    window.clearTimeout(burstTimer.current)
+    burstTimer.current = window.setTimeout(() => setLikeBurst(false), 850)
+  }
+  function handleVideoTap(event) {
+    if (event.target.closest('button, a, input, textarea')) return
+    const now = Date.now()
+    if (now - lastTapAt.current < 280) {
+      lastTapAt.current = 0
+      window.clearTimeout(singleTapTimer.current)
+      likeFromGesture()
+      return
+    }
+    lastTapAt.current = now
+    singleTapTimer.current = window.setTimeout(() => {
+      const el = document.getElementById(`video-${reel.id}`)
+      if (!el) return
+      if (el.paused) el.play().then(() => setPlaying(true)).catch(() => setPlaying(false))
+      else { el.pause(); setPlaying(false) }
+    }, 280)
   }
   async function toggleFollow(event) {
     event.stopPropagation()
@@ -97,11 +125,12 @@ function ReelCard({ reel, user, profile, profiles }) {
   }
   const video = document.getElementById(`video-${reel.id}`)
   return <article className="reel-card" id={`reel-${reel.id}`}>
-    <div className="reel-video-wrap" onClick={() => { if (!video) return; if (video.paused) { video.play(); setPlaying(true) } else { video.pause(); setPlaying(false) } }}>
+    <div className="reel-video-wrap" onClick={handleVideoTap}>
       {src ? <video id={`video-${reel.id}`} src={src} autoPlay muted={muted} loop playsInline preload="metadata" onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}/> : <div className="reel-media-loading"><Clapperboard/><span>{reel.mediaKey ? 'Loading private video…' : 'Reel video unavailable'}</span></div>}
       <div className="reel-scrim"/>
       {!playing && src && <span className="reel-play-cue">▶</span>}
-      <button className={`reel-sound ${muted ? 'is-muted' : 'is-live'}`} onClick={(e) => { e.stopPropagation(); setMuted((v) => !v) }} aria-label={muted ? 'Turn Reel sound on' : 'Turn Reel sound off'}>{muted ? <VolumeX size={17}/> : <Volume2 size={17}/>}<span>{muted ? 'Tap for sound' : 'Sound on'}</span></button>
+      {likeBurst && <span className="reel-doubletap-heart" aria-hidden="true"><Heart fill="currentColor"/></span>}
+      <button className={`reel-sound ${muted ? 'is-muted' : 'is-live'}`} onClick={(e) => { e.stopPropagation(); const next = !muted; setMuted(next); if (video) { video.muted = next; video.volume = 1; if (!next && video.paused) video.play().then(() => setPlaying(true)).catch(() => setPlaying(false)) } }} aria-label={muted ? 'Turn Reel sound on' : 'Turn Reel sound off'}>{muted ? <VolumeX size={17}/> : <Volume2 size={17}/>}<span>{muted ? 'Tap for sound' : 'Sound on'}</span></button>
       <div className="reel-author"><Avatar src={author.avatar || reel.avatar} mediaKey={author.avatarKey || reel.avatarKey} name={author.displayName || reel.authorName} size="sm"/><div><b>{reel.username || author.username || 'animefan'} <VerifiedBadge uid={reel.authorId} profile={author}/></b><span>{reel.authorName || author.displayName || 'Midnight fan'}</span></div>{reel.authorId !== user.uid && <button className={`reel-follow ${following ? 'following' : ''}`} onClick={toggleFollow}>{following ? 'Following' : 'Follow'}</button>}</div>
       <p className="reel-caption">{reel.caption || 'A moment from my anime world.'}</p>
       <span className="reel-audio-label">♫ Original audio · Midnight Anime</span>
@@ -147,9 +176,9 @@ function ReelUploadModal({ user, profile, onClose }) {
 
   return <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && !busy && onClose()}><form className="reel-upload-modal" onSubmit={upload}>
     <header className="reel-upload-head"><div><p className="eyebrow">SHARE A SHORT MOMENT</p><h2>Create a Reel</h2></div><button type="button" className="icon-button" onClick={onClose} disabled={busy}><X/></button></header>
-    <label className={`reel-upload-zone ${preview ? 'has-preview' : ''}`}>{preview ? <InstagramVideo src={preview} autoPlay loop className="reel-upload-instagram-video" title="Reel preview"/> : <><Clapperboard size={28}/><b>Choose a video</b><span>MP4, WebM or QuickTime · private AWS S3</span></>}<input type="file" accept="video/mp4,video/webm,video/quicktime,video/x-m4v" onChange={(e) => { setFile(e.target.files?.[0] || null); setError('') }} hidden/></label>
+    <label className={`reel-upload-zone ${preview ? 'has-preview' : ''}`}>{preview ? <InstagramVideo src={preview} autoPlay loop className="reel-upload-instagram-video" title="Reel preview"/> : <><Clapperboard size={28}/><b>Choose a video</b><span>MP4, WebM or QuickTime · private AWS S3/R2</span></>}<input type="file" accept="video/mp4,video/webm,video/quicktime,video/x-m4v" onChange={(e) => { setFile(e.target.files?.[0] || null); setError('') }} hidden/></label>
     <textarea className="caption-input" value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Add a caption…" maxLength={1200}/>
     {error && <p className="auth-error" role="alert">{error}</p>}{progress && <p className="upload-progress">{progress}</p>}
-    <footer className="reel-upload-foot"><span className="muted tiny">Your video stays private in AWS S3; original audio is preserved.</span><button className="primary-button" disabled={busy || !file}>{busy ? 'Publishing…' : 'Share Reel'}</button></footer>
+    <footer className="reel-upload-foot"><span className="muted tiny">Private AWS S3/R2 storage; uploaded audio is preserved. Tap Sound on in a Reel to hear it.</span><button className="primary-button" disabled={busy || !file}>{busy ? 'Publishing…' : 'Share Reel'}</button></footer>
   </form></div>
 }
