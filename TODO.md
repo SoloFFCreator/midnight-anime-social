@@ -6,6 +6,7 @@
 - [x] Provide Firebase Google/email-password sign-in, signup, email verification, password reset, editable profile details and atomic lowercase unique-handle claim/repair.
 - [x] Provide the Firebase-backed feed, Explore, 24-hour Stories, notifications, private DMs, profiles, follows, likes, comments and saved media.
 - [x] Provide authenticated private uploads for posts, Stories, Reels and profile photos through both AWS S3 and Cloudflare R2; use measured successful upload latency to prefer the faster backend, and fall back to the other if signing or upload fails.
+- [x] Fit the mobile Reel video and action rail within the usable viewport without a clipped fixed-height inner feed; show selected file size plus byte/rate/estimated-time upload progress, and avoid repeatedly retrying a recently failed storage backend.
 - [x] Keep mobile video autoplay muted by browser policy, provide a visible sound toggle that explicitly unmutes the actual video element, preserve uploaded original media bytes/audio, and support double-tap like gestures on social Reels.
 - [x] Add searchable people/handles in Explore and a visible modal comments sheet on anime episodes.
 - [x] Prepare owner-scoped Realtime Database rules that allow an authenticated owner to create their own public post, Story or Reel, while protecting profile ownership, handle uniqueness, social interactions, direct-message membership and official-badge eligibility.

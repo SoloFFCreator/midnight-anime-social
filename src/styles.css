@@ -65,3 +65,15 @@
 @media(max-width:640px){.reels-page{height:calc(100dvh - 132px);display:flex;flex-direction:column;overflow:hidden}.reels-feed{flex:1;min-height:0;overflow-y:auto;overscroll-behavior-y:contain;scroll-snap-type:y mandatory;scrollbar-width:none}.reels-feed::-webkit-scrollbar{display:none}.reel-card{min-height:100%;scroll-snap-align:start;scroll-snap-stop:always}.reel-video-wrap{height:100%;min-height:0;max-height:none;aspect-ratio:auto}.anime-audio-cycle{min-width:42px!important}}
 
 .anime-reel-frame{touch-action:none}
+
+/* Keep mobile Reels inside the visible viewport without clipping the action rail. */
+@media(max-width:640px){
+  .reels-page{height:auto;min-height:0;overflow:visible;padding-bottom:calc(20px + env(safe-area-inset-bottom))}
+  .reels-feed{flex:initial;min-height:0;height:auto;overflow:visible;overscroll-behavior:initial;scroll-snap-type:none;gap:18px;margin-top:8px}
+  .reel-card{min-height:0;align-items:stretch;scroll-snap-align:none;scroll-snap-stop:normal}
+  .reel-video-wrap{height:clamp(320px,calc(100dvh - 250px),620px);min-height:320px;max-height:620px;aspect-ratio:9/16}
+  .reel-actions{min-height:0;gap:14px;padding:0 0 12px}
+}
+
+.reel-file-size{margin:8px 2px 0;color:var(--t3);font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.reel-upload-modal .upload-progress{margin:8px 0 0;padding:9px 10px;border:1px solid rgba(244,117,33,.18);border-radius:9px;background:rgba(244,117,33,.06);color:#ffbd8a;font-size:10px;line-height:1.4;font-variant-numeric:tabular-nums}
