@@ -38,14 +38,19 @@ export function Avatar({ src, mediaKey, name = '?', size = 'md', ring = false })
 export function VerifiedBadge({ uid, profile, size = 16 }) {
   const [followers, setFollowers] = useState(0)
   const gold = profile?.officialBadge === 'gold'
+  const artist = profile?.artistBadge === true
   useEffect(() => {
     setFollowers(0)
-    if (!uid || gold) return
+    if (!uid || gold || artist) return
     return onValue(ref(db, `followers/${uid}`), (snapshot) => setFollowers(Object.keys(snapshot.val() || {}).length), () => setFollowers(0))
-  }, [uid, gold])
-  if (gold) return <img className="verified-badge" width={size} height={size} src="/badges/verified-gold.png" alt="Official Midnight Anime account" title="Official Midnight Anime account" />
-  if (followers >= 1000) return <img className="verified-badge" width={size} height={size} src="/badges/verified-blue.png" alt="Verified fan account — 1,000+ followers" title="Verified community account" />
-  return null
+  }, [uid, gold, artist])
+  const community = !gold && !artist && followers >= 1000
+  if (!gold && !artist && !community) return null
+  return <span className="verified-badges">
+    {gold && <img className="verified-badge" width={size} height={size} src="/badges/verified-gold.png" alt="Official Midnight Anime account" title="Official Midnight Anime account" />}
+    {artist && <img className="verified-badge verified-artist-badge" width={size} height={size} src="/badges/verified-artist.png" alt="Verified artist" title="Verified artist" />}
+    {community && <img className="verified-badge" width={size} height={size} src="/badges/verified-blue.png" alt="Verified fan account — 1,000+ followers" title="Verified community account" />}
+  </span>
 }
 
 export function PageHeading({ eyebrow, title, sub }) {

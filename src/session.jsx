@@ -6,6 +6,7 @@ import { auth, db } from './firebase'
 const Context = createContext(null)
 export const useSession = () => useContext(Context)
 const OFFICIAL_EMAIL = 'mallaprabesh141@gmail.com'
+const ARTIST_EMAIL = 'ffsolo844@gmail.com'
 const PENDING_HANDLE_KEY = 'midnight-anime-pending-signup-handle'
 const normalizeHandle = (value) => String(value || '').trim().replace(/^@+/, '').toLowerCase().replace(/[^a-z0-9._]/g, '').replace(/^[._]+|[._]+$/g, '').slice(0, 30)
 const validHandle = (value) => /^[a-z0-9](?:[a-z0-9._]{1,28}[a-z0-9])$/.test(value)
@@ -53,6 +54,7 @@ export function SessionProvider({ children }) {
       setLoading(true)
       if (!next) { setProfile(null); setLoading(false); return }
       const official = next.email?.toLowerCase() === OFFICIAL_EMAIL && next.emailVerified
+      const artist = next.email?.toLowerCase() === ARTIST_EMAIL && next.emailVerified
       const pending = pendingSignupHandle()
       const displayBase = next.displayName || next.email?.split('@')[0] || 'Anime fan'
       const base = normalizeHandle(pending || next.displayName || next.email?.split('@')[0] || 'animefan') || 'animefan'
@@ -65,6 +67,7 @@ export function SessionProvider({ children }) {
         website: '',
         pronouns: '',
         ...(official ? { officialBadge: 'gold' } : {}),
+        ...(artist ? { artistBadge: true } : {}),
         createdAt: Date.now(),
       }
       profileUnsubscribe = onValue(ref(db, `profiles/${next.uid}`), (snapshot) => {
@@ -101,6 +104,15 @@ export function SessionProvider({ children }) {
           delete nextProfile.officialBadge
           try { await remove(ref(db, `profiles/${next.uid}/officialBadge`)) }
           catch (writeError) { console.warn('Official badge removal was deferred:', writeError.code || writeError.message) }
+        }
+        if (artist && current?.artistBadge !== true) {
+          nextProfile.artistBadge = true
+          try { await update(ref(db, `profiles/${next.uid}`), { artistBadge: true }) }
+          catch (writeError) { console.warn('Artist badge sync was deferred:', writeError.code || writeError.message) }
+        } else if (!artist && current?.artistBadge === true) {
+          delete nextProfile.artistBadge
+          try { await remove(ref(db, `profiles/${next.uid}/artistBadge`)) }
+          catch (writeError) { console.warn('Artist badge removal was deferred:', writeError.code || writeError.message) }
         }
         if (active) setProfile(nextProfile)
       } catch (readError) {

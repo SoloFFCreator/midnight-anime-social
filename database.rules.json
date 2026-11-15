@@ -14,7 +14,7 @@
       ".indexOn": ["avatarKey"],
       "$uid": {
         ".write": "auth != null && auth.uid === $uid",
-        ".validate": "newData.hasChildren(['uid', 'username', 'displayName']) && newData.child('uid').val() === $uid && newData.child('username').isString() && newData.child('username').val().matches(/^[a-z0-9][a-z0-9._]{1,28}[a-z0-9]$/) && root.child('handleIndex').child(newData.child('username').val()).val() === auth.uid && (!newData.child('officialBadge').exists() || (newData.child('officialBadge').val() === 'gold' && auth.token.email === 'mallaprabesh141@gmail.com' && auth.token.email_verified === true))"
+        ".validate": "newData.hasChildren(['uid', 'username', 'displayName']) && newData.child('uid').val() === $uid && newData.child('username').isString() && newData.child('username').val().matches(/^[a-z0-9][a-z0-9._]{1,28}[a-z0-9]$/) && root.child('handleIndex').child(newData.child('username').val()).val() === auth.uid && (!newData.child('officialBadge').exists() || (newData.child('officialBadge').val() === 'gold' && auth.token.email === 'mallaprabesh141@gmail.com' && auth.token.email_verified === true)) && (!newData.child('artistBadge').exists() || (newData.child('artistBadge').val() === true && auth.token.email === 'ffsolo844@gmail.com' && auth.token.email_verified === true))"
       }
     },
     "posts": {
