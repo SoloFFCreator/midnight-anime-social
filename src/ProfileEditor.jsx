@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { ref, remove, runTransaction } from 'firebase/database'
 import { db } from './firebase'
 import { useSession } from './session'
-import { Avatar, uploadPrivateMedia } from './ui.jsx'
+import { Avatar, getPrivateMediaUrl, uploadPrivateMedia } from './ui.jsx'
 import { Camera, X } from 'lucide-react'
 
 const normalizeHandle = (value) => value.trim().replace(/^@+/, '').toLowerCase().replace(/^[._]+|[._]+$/g, '')
@@ -17,6 +17,9 @@ export default function ProfileEditor({ user, profile, onClose }) {
   const [pronouns, setPronouns] = useState(profile.pronouns || '')
   const [avatarFile, setAvatarFile] = useState(null)
   const [preview, setPreview] = useState('')
+  const [bannerFile, setBannerFile] = useState(null)
+  const [bannerPreview, setBannerPreview] = useState('')
+  const [currentBanner, setCurrentBanner] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [progress, setProgress] = useState('')
@@ -27,6 +30,20 @@ export default function ProfileEditor({ user, profile, onClose }) {
     setPreview(url)
     return () => URL.revokeObjectURL(url)
   }, [avatarFile])
+
+  useEffect(() => {
+    if (!bannerFile) { setBannerPreview(''); return }
+    const url = URL.createObjectURL(bannerFile)
+    setBannerPreview(url)
+    return () => URL.revokeObjectURL(url)
+  }, [bannerFile])
+
+  useEffect(() => {
+    let active = true
+    setCurrentBanner('')
+    if (profile.bannerKey) getPrivateMediaUrl(profile.bannerKey, user).then((url) => { if (active) setCurrentBanner(url) }).catch(() => {})
+    return () => { active = false }
+  }, [profile.bannerKey, user])
 
   async function uploadAvatar(file) {
     return uploadPrivateMedia(file, user, setProgress)
@@ -48,8 +65,10 @@ export default function ProfileEditor({ user, profile, onClose }) {
       claimedNewHandle = cleanHandle !== oldHandle
       let avatarKey = profile.avatarKey || ''
       if (avatarFile) { avatarKey = await uploadAvatar(avatarFile) }
+      let bannerKey = profile.bannerKey || ''
+      if (bannerFile) { setProgress('Uploading profile banner…'); bannerKey = await uploadPrivateMedia(bannerFile, user, setProgress) }
       setProgress('Saving profile…')
-      const patch = { displayName: displayName.trim(), username: cleanHandle, bio: bio.trim().slice(0, 220), website: website.trim().slice(0, 200), pronouns: pronouns.trim().slice(0, 40), ...(avatarKey ? { avatarKey } : {}), updatedAt: Date.now() }
+      const patch = { displayName: displayName.trim(), username: cleanHandle, bio: bio.trim().slice(0, 220), website: website.trim().slice(0, 200), pronouns: pronouns.trim().slice(0, 40), ...(avatarKey ? { avatarKey } : {}), ...(bannerKey ? { bannerKey } : {}), updatedAt: Date.now() }
       await saveProfile(patch)
       profileSaved = true
       if (cleanHandle !== oldHandle && oldHandle) await runTransaction(ref(db, `handleIndex/${oldHandle}`), (value) => value === user.uid ? null : value).catch(() => {})
@@ -67,6 +86,7 @@ export default function ProfileEditor({ user, profile, onClose }) {
     <form className="profile-edit-modal" onSubmit={submit}>
       <header className="profile-edit-head"><div><p className="eyebrow">YOUR PROFILE</p><h2>Edit profile</h2></div><button type="button" className="icon-button" onClick={onClose} disabled={busy} aria-label="Close profile editor"><X/></button></header>
       <label className="profile-photo-picker"><span className="profile-photo-preview">{preview ? <span className="avatar avatar-profile"><img src={preview} alt="Selected profile"/></span> : <Avatar src={profile.avatar} mediaKey={profile.avatarKey} name={displayName} size="profile"/>}</span><span><b>Profile photo</b><small>Upload a photo · JPG, PNG or WebP</small></span><span className="profile-photo-action"><Camera size={16}/> Change</span><input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={(e) => setAvatarFile(e.target.files?.[0] || null)} hidden /></label>
+      <label className="profile-banner-picker"><span className="profile-banner-preview">{(bannerPreview || currentBanner) ? <img src={bannerPreview || currentBanner} alt="Profile banner preview"/> : <span className="profile-banner-placeholder">MIDNIGHT ANIME SOCIAL</span>}</span><span className="profile-banner-copy"><b>Profile banner</b><small>Optional · JPG, PNG, WebP or AVIF</small></span><span className="profile-photo-action"><Camera size={16}/> {bannerFile || currentBanner ? 'Change' : 'Add banner'}</span><input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={(e) => setBannerFile(e.target.files?.[0] || null)} hidden /></label>
       <div className="profile-edit-fields">
         <label>Display name<input value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={60} required /></label>
         <label>Username<span className="profile-handle-input"><i>@</i><input value={handle} onChange={(e) => setHandle(e.target.value)} maxLength={30} autoCapitalize="none" autoCorrect="off" spellCheck="false" required /></span><small>Unique username · 3–30 characters</small></label>
@@ -74,7 +94,7 @@ export default function ProfileEditor({ user, profile, onClose }) {
         <div className="profile-field-pair"><label>Pronouns<input value={pronouns} onChange={(e) => setPronouns(e.target.value)} maxLength={40} placeholder="Optional" /></label><label>Website<input type="url" value={website} onChange={(e) => setWebsite(e.target.value)} maxLength={200} placeholder="https://…" /></label></div>
       </div>
       {error && <p className="auth-error" role="alert">{error}</p>}{progress && <p className="upload-progress">{progress}</p>}
-      <footer className="profile-edit-foot"><span className="muted tiny">Your photo uses the faster private AWS S3/R2 storage available.</span><button className="primary-button" disabled={busy}>{busy ? 'Saving…' : 'Save changes'}</button></footer>
+      <footer className="profile-edit-foot"><span className="muted tiny">Photos and banners use private AWS S3/R2 storage.</span><button className="primary-button" disabled={busy}>{busy ? 'Saving…' : 'Save changes'}</button></footer>
     </form>
   </div>
 }
