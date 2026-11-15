@@ -77,3 +77,9 @@
 
 .reel-file-size{margin:8px 2px 0;color:var(--t3);font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .reel-upload-modal .upload-progress{margin:8px 0 0;padding:9px 10px;border:1px solid rgba(244,117,33,.18);border-radius:9px;background:rgba(244,117,33,.06);color:#ffbd8a;font-size:10px;line-height:1.4;font-variant-numeric:tabular-nums}
+/* Keep compact post identity rows on one line; avoid clipping at the fixed mobile header height. */
+.post-author .verified-badges{display:inline-flex;vertical-align:middle;margin:0;color:inherit;font-size:inherit}
+.post-author .you-tag{display:inline-block;vertical-align:middle;margin:0 0 0 6px}
+/* Community uploads retain the complete source frame (16:9, portrait, or other ratios). */
+.post-media-video{background:#050507;overflow:hidden}
+.post-media-video .instagram-video>video{object-fit:contain;background:#050507}

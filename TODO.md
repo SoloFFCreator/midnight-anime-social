@@ -4,7 +4,7 @@
 
 - [x] Preserve the original Midnight Anime logo, dark/orange visual system, supplied social interface references, and supplied gold/blue verification artwork; show the supplied artist badge only for the verified `ffsolo844@gmail.com` account.
 - [x] Provide Firebase Google/email-password sign-in, signup, email verification, password reset, editable profile details and atomic lowercase unique-handle claim/repair.
-- [x] Provide the Firebase-backed feed, Explore, 24-hour Stories, notifications, private DMs, profiles, follows, likes, comments and saved media.
+- [x] Provide the Firebase-backed feed, Explore, 24-hour Stories, notifications, private DMs, profiles, follows, likes, comments and saved media; keep post badges inline and fit uploaded videos to their full native frame/aspect ratio instead of cropping YouTube-style landscape clips.
 - [x] Provide authenticated private uploads for posts, Stories, Reels and profile photos through both AWS S3 and Cloudflare R2; use measured successful upload latency to prefer the faster backend, and fall back to the other if signing or upload fails.
 - [x] Fit the mobile Reel video and action rail within the usable viewport without a clipped fixed-height inner feed; show selected file size plus byte/rate/estimated-time upload progress, and avoid repeatedly retrying a recently failed storage backend.
 - [x] Keep mobile video autoplay muted by browser policy, provide a visible sound toggle that explicitly unmutes the actual video element, preserve uploaded original media bytes/audio, and support double-tap like gestures on social Reels.

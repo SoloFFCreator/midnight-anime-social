@@ -7,7 +7,7 @@ function clock(value) {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
 }
 
-export default function InstagramVideo({ src, poster = '', autoPlay = false, loop = false, className = '', title = 'Video' }) {
+export default function InstagramVideo({ src, poster = '', autoPlay = false, loop = false, className = '', title = 'Video', onMetadata }) {
   const videoRef = useRef(null)
   const timerRef = useRef(null)
   const [playing, setPlaying] = useState(false)
@@ -71,7 +71,7 @@ export default function InstagramVideo({ src, poster = '', autoPlay = false, loo
   }
 
   return <div className={`instagram-video ${className}`} onPointerMove={reveal} onTouchStart={reveal} onClick={(event) => { event.stopPropagation(); togglePlay(event) }}>
-    <video ref={videoRef} src={src || undefined} poster={poster || undefined} autoPlay={autoPlay} muted={muted} loop={loop} playsInline preload="metadata" controls={false} aria-label={title}/>
+    <video ref={videoRef} src={src || undefined} poster={poster || undefined} autoPlay={autoPlay} muted={muted} loop={loop} playsInline preload="metadata" controls={false} aria-label={title} onLoadedMetadata={(event) => onMetadata?.(event.currentTarget.videoWidth, event.currentTarget.videoHeight)}/>
     <button type="button" className={`instagram-video-sound ${muted ? 'is-muted' : 'is-live'}`} onClick={toggleMute} aria-label={muted ? 'Turn sound on' : 'Turn sound off'}><span>{muted ? <VolumeX size={16}/> : <Volume2 size={16}/>}</span>{muted ? 'Tap for sound' : 'Sound on'}</button>
     {!playing && src && <button type="button" className="instagram-video-center" onClick={togglePlay} aria-label="Play video"><Play fill="currentColor"/></button>}
     <div className={`instagram-video-controls ${visible ? 'controls-visible' : ''}`} onClick={reveal}>
