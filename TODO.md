@@ -32,3 +32,8 @@
 
 - [ ] Add abuse reporting/moderation, server-side rate limits and quotas, account deletion, and monitoring before broad public sign-ups.
 - [ ] Add multipart S3 upload if files larger than the current single-object 5 GB limit are required.
+
+## UX polish delivered
+- [x] Add an animated, reduced-motion-aware Midnight Anime splash using the original logo while authentication or lazy-loaded UI is resolving.
+- [x] Fade and disable custom video controls and sound actions after playback inactivity; reveal them on interaction and keep them visible while paused.
+- [x] Redesign Inbox with a real-profile horizontal people strip, existing-chat prioritization, deduplicated profiles, and responsive conversation/chat layouts.

@@ -27,6 +27,10 @@ const links = [
   { to: '/profile', label: 'My profile', icon: UserRound },
 ]
 
+function OpeningSplash() {
+  return <div className="opening-splash" role="status" aria-live="polite" aria-label="Opening Midnight Anime Social"><div className="splash-glow"/><img className="splash-logo" src="/midnight-anime-logo.svg" alt="Midnight Anime Social"/><p>Opening your midnight feed…</p><div className="splash-loader" aria-hidden="true"><i/></div><span className="sr-only">Please wait while the app loads.</span></div>
+}
+
 function AppShell() {
   const { user, profile, loading, saveProfile } = useSession()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -44,7 +48,7 @@ function AppShell() {
   useEffect(() => { if (!user) return; return onValue(ref(db, 'posts'), s => setPosts(Object.values(s.val() || {}).filter(x => x?.visibility !== 'private').sort((a,b) => b.createdAt-a.createdAt))) }, [user])
   useEffect(() => { if (!user) return; return onValue(ref(db, 'reels'), s => setReels(Object.values(s.val() || {}).filter(x => x?.visibility !== 'private').sort((a,b) => b.createdAt-a.createdAt))) }, [user])
   const activeProfile = profile || { username: 'midnightfan', displayName: 'Anime fan', avatar: '' }
-  if (loading) return <div className="loading-screen"><div className="spinner"/><span>Opening the midnight feed…</span></div>
+  if (loading) return <OpeningSplash />
   if (!user) return <AuthScreen />
   const handleCreate = (kind = 'post') => setShowCreate(kind)
   const activeTab = location.pathname === '/profile' ? `/profile/${user.uid}` : location.pathname
@@ -115,4 +119,4 @@ function CreateModal({user,profile,onClose,initialStory=false}) {
     <div className="modal-foot"><span className="muted tiny">Shared with the Midnight community</span><button className="primary-button" disabled={busy}>{busy?'Sharing…':kind==='story'?'Share story':'Share post'}</button></div>
   </form></div>
 }
-export default function App(){return <Suspense fallback={<div className="loading-screen"><div className="spinner"/><span>Opening your midnight feed…</span></div>}><AppShell/></Suspense>}
+export default function App(){return <Suspense fallback={<OpeningSplash />}><AppShell/></Suspense>}
