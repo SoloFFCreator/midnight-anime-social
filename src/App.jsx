@@ -1,6 +1,6 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
-import { onValue, push, ref, remove, set, update } from 'firebase/database'
+import { onDisconnect, onValue, push, ref, remove, set, update } from 'firebase/database'
 import { signOut } from 'firebase/auth'
 import { auth, db } from './firebase'
 import { useSession } from './session'
@@ -35,6 +35,7 @@ function AppShell() {
   const { user, profile, loading, saveProfile } = useSession()
   const [menuOpen, setMenuOpen] = useState(false)
   const [profiles, setProfiles] = useState([])
+  const activePresenceRef = useRef(null)
   const [stories, setStories] = useState([])
   const [posts, setPosts] = useState([])
   const [reels, setReels] = useState([])
@@ -43,6 +44,23 @@ function AppShell() {
   const [searchText, setSearchText] = useState('')
   const location = useLocation()
   const navigate = useNavigate()
+  useEffect(() => {
+    if (!user?.uid || profile?.uid !== user.uid) return undefined
+    const connectedRef = ref(db, '.info/connected')
+    const connectionRef = push(ref(db, `profiles/${user.uid}/connections`))
+    activePresenceRef.current = connectionRef
+    const stop = onValue(connectedRef, snapshot => {
+      if (snapshot.val() !== true) return
+      onDisconnect(connectionRef).remove()
+        .then(() => set(connectionRef, true))
+        .catch(error => console.warn('Presence could not be updated:', error?.message || error))
+    })
+    return () => { stop(); onDisconnect(connectionRef).cancel().catch(() => {}); remove(connectionRef).catch(() => {}); if (activePresenceRef.current === connectionRef) activePresenceRef.current = null }
+  }, [user?.uid, profile?.uid])
+  async function handleSignOut() {
+    if (activePresenceRef.current) await remove(activePresenceRef.current).catch(() => {})
+    await signOut(auth)
+  }
   useEffect(() => { if (!user) return; return onValue(ref(db, 'profiles'), s => setProfiles(Object.values(s.val() || {}).filter(p => p?.uid))) }, [user])
   useEffect(() => { if (!user) return; return onValue(ref(db, 'stories'), s => setStories(Object.values(s.val() || {}).filter(x => x?.expiresAt > Date.now()).sort((a,b) => b.createdAt-a.createdAt))) }, [user])
   useEffect(() => { if (!user) return; return onValue(ref(db, 'posts'), s => setPosts(Object.values(s.val() || {}).filter(x => x?.visibility !== 'private').sort((a,b) => b.createdAt-a.createdAt))) }, [user])
@@ -56,7 +74,7 @@ function AppShell() {
   return <div className="app-shell">
     <header className="topbar"><div className="topbar-inner"><button className="mobile-menu icon-button" onClick={() => setMenuOpen(!menuOpen)} aria-label="Menu">{menuOpen ? <X/> : <Menu/>}</button><BrandMark /><div className="top-search"><Search size={16}/><input placeholder="Search anime, people, moments…" value={searchText} onChange={e=>setSearchText(e.target.value)} onKeyDown={e=>e.key==='Enter' && navigate(`/explore?q=${encodeURIComponent(searchText)}`)}/><kbd>↵</kbd></div>{(location.pathname === '/profile' || location.pathname === `/profile/${user.uid}`) ? <button className="icon-button create-top" onClick={() => setEditProfileOpen(true)}><UserRound/><span>Edit profile</span></button> : <button className="icon-button create-top" onClick={handleCreate}><Plus/><span>New post</span></button>}<NavLink to="/notifications" className="icon-button bell-top" aria-label="Notifications"><Bell/></NavLink><button className="profile-chip" onClick={()=>navigate(`/profile/${user.uid}`)}><Avatar src={activeProfile.avatar} mediaKey={activeProfile.avatarKey} name={activeProfile.displayName} size="xs"/><span>{activeProfile.username}</span></button></div></header>
     <div className="layout">
-      <aside className={`left-rail ${menuOpen ? 'rail-open' : ''}`}><div className="rail-nav">{links.map(({to,label,icon:Icon}) => <NavLink key={to} to={to} end={to==='/'} className={({isActive})=>`rail-link ${isActive?'selected':''}`} onClick={()=>setMenuOpen(false)}><Icon size={19}/><span>{label}</span>{label==='Notifications' && <i className="unread-dot"/>}</NavLink>)}<button className="rail-link" onClick={handleCreate}><Plus size={19}/><span>Create post</span></button></div><div className="rail-spacer"/><div className="rail-note"><Sparkles size={16}/><p><b>Made for the after-hours.</b><br/>Your next fandom friend is one post away.</p></div><button className="rail-link signout" onClick={()=>signOut(auth)}><LogOut size={17}/><span>Sign out</span></button><div className="rail-version">MIDNIGHT ANIME SOCIAL · BETA</div></aside>
+      <aside className={`left-rail ${menuOpen ? 'rail-open' : ''}`}><div className="rail-nav">{links.map(({to,label,icon:Icon}) => <NavLink key={to} to={to} end={to==='/'} className={({isActive})=>`rail-link ${isActive?'selected':''}`} onClick={()=>setMenuOpen(false)}><Icon size={19}/><span>{label}</span>{label==='Notifications' && <i className="unread-dot"/>}</NavLink>)}<button className="rail-link" onClick={handleCreate}><Plus size={19}/><span>Create post</span></button></div><div className="rail-spacer"/><div className="rail-note"><Sparkles size={16}/><p><b>Made for the after-hours.</b><br/>Your next fandom friend is one post away.</p></div><button className="rail-link signout" onClick={handleSignOut}><LogOut size={17}/><span>Sign out</span></button><div className="rail-version">MIDNIGHT ANIME SOCIAL · BETA</div></aside>
       <main className="main-column"><Routes><Route path="/" element={<FeedPage user={user} profile={activeProfile} profiles={profiles} stories={stories} posts={posts} onCreate={handleCreate} onStory={setShowCreate}/>} /><Route path="/explore" element={<ExplorePage posts={posts} profiles={profiles} user={user} />} /><Route path="/reels" element={<ReelsPage user={user} profile={activeProfile} profiles={profiles} reels={reels} />} /><Route path="/saved" element={<SavedPage user={user} />} /><Route path="/reels/anime/:mediaType/:id/:season/:episode" element={<AnimeReelPlayer user={user} />} /><Route path="/anime" element={<AnimePage />} /><Route path="/inbox/*" element={<InboxPage user={user} profile={activeProfile} profiles={profiles} />} /><Route path="/notifications" element={<NotificationsPage user={user}/>} /><Route path="/profile" element={<ProfilePage user={user} ownProfile={activeProfile} saveProfile={saveProfile} posts={posts} onEdit={() => setEditProfileOpen(true)} />} /><Route path="/profile/:uid" element={<ProfilePage user={user} ownProfile={activeProfile} saveProfile={saveProfile} posts={posts} onEdit={() => setEditProfileOpen(true)} />} /><Route path="*" element={<FeedPage user={user} profile={activeProfile} profiles={profiles} stories={stories} posts={posts} onCreate={handleCreate} onStory={setShowCreate}/>} /></Routes></main>
       <aside className="right-rail"><section className="self-card"><div className="self-card-top"><Avatar src={activeProfile.avatar} mediaKey={activeProfile.avatarKey} name={activeProfile.displayName} size="lg"/><div><b>{activeProfile.displayName}</b><span>@{activeProfile.username}</span></div></div><div className="self-stats"><span><b>{posts.filter(p=>p.authorId===user.uid).length}</b> posts</span><span><b>—</b> followers</span><span><b>—</b> following</span></div><Link className="text-link" to={`/profile/${user.uid}`}>View your profile <span>↗</span></Link></section><section className="suggestions"><div className="section-head"><h3>People to follow</h3><button onClick={()=>navigate('/explore')}>See all</button></div>{suggestions.length ? suggestions.map(p=><Suggestion key={p.uid} person={p} me={user.uid}/>) : <p className="muted tiny">Follow other fans to fill this space.</p>}</section><section className="quote-card"><div className="quote-glyph">“</div><p>Share what you love.<br/><em>Find your people.</em></p><span>THE MIDNIGHT PROMISE</span></section><footer className="site-footer">About · Guidelines · Privacy<br/>© 2026 Midnight Anime Social</footer></aside>
     </div>
