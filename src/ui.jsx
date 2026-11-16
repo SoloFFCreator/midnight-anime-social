@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { onValue, ref } from 'firebase/database'
 import { auth, db } from './firebase'
 
-export { uploadPrivateMedia } from './media.js'
+export { createVideoThumbnail, uploadPrivateMedia, uploadShareThumbnail } from './media.js'
 
 export function BrandMark() {
   return <Link to="/" className="brand" aria-label="Midnight Anime Social home"><span className="brand-icon"><img src="/midnight-anime-logo.svg" alt="" /></span><span>Midnight<span className="brand-accent">Anime</span><small> SOCIAL</small></span></Link>
@@ -21,6 +21,15 @@ export async function getPrivateMediaUrl(key, user = auth.currentUser) {
   if (!response.ok) return ''
   const body = await response.json()
   return body?.url || ''
+}
+
+export function createSharePreviewUrl({ target, title, description, image = '' }) {
+  const preview = new URL('/api/share-preview', window.location.origin)
+  preview.searchParams.set('target', target)
+  preview.searchParams.set('title', title)
+  preview.searchParams.set('description', description)
+  if (image) preview.searchParams.set('image', image)
+  return preview.toString()
 }
 
 export function Avatar({ src, mediaKey, name = '?', size = 'md', ring = false }) {

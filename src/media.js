@@ -132,3 +132,54 @@ export async function uploadPrivateMedia(file, user, setProgress = () => {}) {
   }
   throw new Error(`Upload failed on both private storage providers. ${failures.join(' ')}`)
 }
+
+export async function uploadShareThumbnail(file, user, setProgress = () => {}) {
+  if (!file || !user) throw new Error('Choose a thumbnail and sign in before uploading.')
+  return uploadAws(file, await user.getIdToken(), setProgress)
+}
+
+export async function createVideoThumbnail(file) {
+  if (!file || !file.type?.startsWith('video/') || typeof document === 'undefined') return null
+  const objectUrl = URL.createObjectURL(file)
+  return new Promise((resolve) => {
+    const video = document.createElement('video')
+    let finished = false
+    const timeout = window.setTimeout(() => finish(null), 15_000)
+    const finish = (thumbnail) => {
+      if (finished) return
+      finished = true
+      window.clearTimeout(timeout)
+      video.pause()
+      video.removeAttribute('src')
+      video.load()
+      URL.revokeObjectURL(objectUrl)
+      resolve(thumbnail)
+    }
+    const capture = () => {
+      if (!video.videoWidth || !video.videoHeight) return finish(null)
+      const scale = Math.min(1, 640 / video.videoWidth, 640 / video.videoHeight)
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.max(1, Math.round(video.videoWidth * scale))
+      canvas.height = Math.max(1, Math.round(video.videoHeight * scale))
+      try {
+        const context = canvas.getContext('2d')
+        if (!context) return finish(null)
+        context.drawImage(video, 0, 0, canvas.width, canvas.height)
+        canvas.toBlob((blob) => {
+          if (!blob) return finish(null)
+          finish(new File([blob], `${file.name.replace(/\.[^.]+$/, '') || 'video'}-preview.jpg`, { type: 'image/jpeg' }))
+        }, 'image/jpeg', 0.84)
+      } catch { finish(null) }
+    }
+    video.preload = 'metadata'
+    video.muted = true
+    video.playsInline = true
+    video.onloadedmetadata = () => {
+      if (Number.isFinite(video.duration) && video.duration > 0) video.currentTime = Math.min(0.5, video.duration * 0.1)
+      else capture()
+    }
+    video.onseeked = capture
+    video.onerror = () => finish(null)
+    video.src = objectUrl
+  })
+}

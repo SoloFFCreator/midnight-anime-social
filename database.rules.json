@@ -19,7 +19,7 @@
     },
     "posts": {
       ".read": "auth != null",
-      ".indexOn": ["mediaKey", "createdAt"],
+      ".indexOn": ["mediaKey", "thumbnailKey", "createdAt"],
       "$postId": {
         ".write": "auth != null && ((!data.exists() && newData.child('authorId').val() === auth.uid) || (data.exists() && data.child('authorId').val() === auth.uid && (!newData.exists() || newData.child('authorId').val() === auth.uid)))",
         ".validate": "!newData.exists() || (newData.hasChildren(['id', 'authorId', 'username', 'mediaKey', 'mediaType', 'caption', 'createdAt', 'visibility']) && newData.child('id').val() === $postId && newData.child('authorId').isString() && newData.child('username').isString() && newData.child('mediaKey').isString() && newData.child('mediaKey').val().length <= 512 && (newData.child('mediaType').val() === 'image' || newData.child('mediaType').val() === 'video') && newData.child('caption').isString() && newData.child('caption').val().length <= 1200 && newData.child('createdAt').isNumber() && newData.child('visibility').val() === 'public')",
@@ -36,7 +36,7 @@
     },
     "reels": {
       ".read": "auth != null",
-      ".indexOn": ["mediaKey", "createdAt"],
+      ".indexOn": ["mediaKey", "thumbnailKey", "createdAt"],
       "$reelId": {
         ".write": "auth != null && ((!data.exists() && newData.child('authorId').val() === auth.uid) || (data.exists() && data.child('authorId').val() === auth.uid && (!newData.exists() || newData.child('authorId').val() === auth.uid)))",
         ".validate": "!newData.exists() || (newData.hasChildren(['id', 'authorId', 'username', 'mediaKey', 'mediaType', 'caption', 'createdAt', 'visibility']) && newData.child('id').val() === $reelId && newData.child('authorId').isString() && newData.child('username').isString() && newData.child('mediaKey').isString() && newData.child('mediaKey').val().length <= 512 && newData.child('mediaType').val() === 'video' && newData.child('caption').isString() && newData.child('caption').val().length <= 1200 && newData.child('createdAt').isNumber() && newData.child('visibility').val() === 'public')",

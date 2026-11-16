@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { onValue, push, ref, remove, set, update } from 'firebase/database'
 import { db } from './firebase'
-import { Avatar, EmptyState, PageHeading, VerifiedBadge, getPrivateMediaUrl, uploadPrivateMedia } from './ui.jsx'
+import { Avatar, EmptyState, PageHeading, VerifiedBadge, createSharePreviewUrl, createVideoThumbnail, getPrivateMediaUrl, uploadPrivateMedia, uploadShareThumbnail } from './ui.jsx'
 import InstagramVideo from './InstagramVideo.jsx'
 import { Bookmark, Clapperboard, Heart, MessageCircle, Plus, Send, Volume2, VolumeX, X } from 'lucide-react'
 
@@ -117,8 +117,13 @@ function ReelCard({ reel, user, profile, profiles }) {
     } catch { /* keep input in place if writes are disabled */ }
   }
   async function share() {
-    const url = `${window.location.origin}/reels?reel=${encodeURIComponent(reel.id)}`
     try {
+      const target = `${window.location.origin}/reels?reel=${encodeURIComponent(reel.id)}`
+      const shareable = reel.visibility !== 'private'
+      const image = shareable && reel.thumbnailKey ? await getPrivateMediaUrl(reel.thumbnailKey, user) : ''
+      const title = shareable ? `${reel.username || author.username || 'Fan'} on Midnight Anime` : 'Midnight Anime Social'
+      const description = shareable ? (reel.caption || 'Watch this Reel on Midnight Anime Social.').replace(/\s+/g, ' ').trim().slice(0, 220) : 'A Reel from Midnight Anime Social.'
+      const url = createSharePreviewUrl({ target, title, description, image })
       if (navigator.share) await navigator.share({ title: `${reel.username || author.username || 'Fan'} on Midnight Anime`, text: reel.caption || 'Watch this Reel', url })
       else { await navigator.clipboard.writeText(url); window.alert('Reel link copied.') }
     } catch (error) { if (error?.name !== 'AbortError') window.alert('Could not share this Reel right now.') }
@@ -165,10 +170,15 @@ function ReelUploadModal({ user, profile, onClose }) {
     if (!file || !file.type.startsWith('video/')) return setError('Choose a video for your Reel.')
     setBusy(true); setError('')
     try {
-      const key = await uploadPrivateMedia(file, user, setProgress)
+      const [key, poster] = await Promise.all([
+        uploadPrivateMedia(file, user, setProgress),
+        createVideoThumbnail(file).catch(() => null),
+      ])
+      let thumbnailKey = ''
+      if (poster) { try { setProgress('Uploading the private share preview…'); thumbnailKey = await uploadShareThumbnail(poster, user, setProgress) } catch (error) { console.warn('Could not upload optional Reel preview image.', error) } }
       setProgress('Publishing your Reel…')
       const node = push(ref(db, 'reels'))
-      await set(node, { id: node.key, authorId: user.uid, authorName: profile.displayName || user.displayName || 'Midnight fan', username: profile.username || 'animefan', avatar: profile.avatar || '', avatarKey: profile.avatarKey || '', mediaKey: key, mediaUrl: '', mediaType: 'video', caption: caption.trim().slice(0, 1200), createdAt: Date.now(), visibility: 'public' })
+      await set(node, { id: node.key, authorId: user.uid, authorName: profile.displayName || user.displayName || 'Midnight fan', username: profile.username || 'animefan', avatar: profile.avatar || '', avatarKey: profile.avatarKey || '', mediaKey: key, mediaUrl: '', mediaType: 'video', ...(thumbnailKey ? { thumbnailKey } : {}), caption: caption.trim().slice(0, 1200), createdAt: Date.now(), visibility: 'public' })
       onClose()
     } catch (e) { const detail=`${e?.code||''} ${e?.message||''}`;setError(/PERMISSION_DENIED|permission.denied/i.test(detail)?'Firebase denied this Reel write. Apply the reviewed database.rules.json to the mid-night-anime Realtime Database, then retry.':e?.message||'Could not publish this Reel.') }
     finally { setBusy(false); setProgress('') }

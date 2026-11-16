@@ -50,7 +50,9 @@ async function canReadMedia(key, uid, token) {
   if (key.startsWith(`aws/${uid}/`)) return true
   const collections = [
     ['posts', 'mediaKey', false],
+    ['posts', 'thumbnailKey', false],
     ['reels', 'mediaKey', false],
+    ['reels', 'thumbnailKey', false],
     ['stories', 'mediaKey', true],
     ['profiles', 'avatarKey', false],
   ]

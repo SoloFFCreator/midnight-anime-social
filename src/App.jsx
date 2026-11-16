@@ -15,7 +15,7 @@ const ProfileEditor = lazy(() => import('./ProfileEditor.jsx'))
 const AnimePage = lazy(() => import('./AnimePage.jsx'))
 const AnimeReelPlayer = lazy(() => import('./AnimeReelPlayer.jsx'))
 import InstagramVideo from './InstagramVideo.jsx'
-import { Avatar, BrandMark, uploadPrivateMedia } from './ui.jsx'
+import { Avatar, BrandMark, createVideoThumbnail, uploadPrivateMedia, uploadShareThumbnail } from './ui.jsx'
 import { Home, Compass, MessageCircle, Plus, Search, Bell, LogOut, Menu, X, UserRound, Sparkles, SunMoon, Play } from 'lucide-react'
 
 const links = [
@@ -115,11 +115,17 @@ function CreateModal({user,profile,onClose,initialStory=false}) {
     if(!file){setError('Choose a photo or video to share.');return}
     setBusy(true);setError('')
     try{
-      const key=await uploadPrivateMedia(file,user,setProgress)
+      const shouldMakePoster=kind==='post'&&file.type.startsWith('video/')
+      const [key,poster]=await Promise.all([
+        uploadPrivateMedia(file,user,setProgress),
+        shouldMakePoster?createVideoThumbnail(file).catch(()=>null):Promise.resolve(null),
+      ])
+      let thumbnailKey=''
+      if(poster){try{setProgress('Uploading the private share preview…');thumbnailKey=await uploadShareThumbnail(poster,user,setProgress)}catch(error){console.warn('Could not upload optional post preview image.',error)}}
       setProgress('Sharing with the community…')
       const path=kind==='story'?'stories':'posts'
       const node=push(ref(db,path))
-      const common={id:node.key,authorId:user.uid,authorName:profile.displayName,username:profile.username,avatar:profile.avatar||'',avatarKey:profile.avatarKey||'',mediaKey:key,mediaUrl:'',mediaType:file.type.startsWith('video/')?'video':'image',caption:caption.trim(),createdAt:Date.now(),visibility:'public'}
+      const common={id:node.key,authorId:user.uid,authorName:profile.displayName,username:profile.username,avatar:profile.avatar||'',avatarKey:profile.avatarKey||'',mediaKey:key,mediaUrl:'',mediaType:file.type.startsWith('video/')?'video':'image',...(thumbnailKey?{thumbnailKey}:{}),caption:caption.trim(),createdAt:Date.now(),visibility:'public'}
       await set(node,kind==='story'?{...common,expiresAt:Date.now()+24*60*60*1000}:{...common,likesCount:0,commentsCount:0})
       onClose()
     }catch(e){
