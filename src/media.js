@@ -135,7 +135,7 @@ export async function uploadPrivateMedia(file, user, setProgress = () => {}) {
 
 export async function uploadShareThumbnail(file, user, setProgress = () => {}) {
   if (!file || !user) throw new Error('Choose a thumbnail and sign in before uploading.')
-  return uploadAws(file, await user.getIdToken(), setProgress)
+  return uploadPrivateMedia(file, user, setProgress)
 }
 
 export async function createVideoThumbnail(file) {

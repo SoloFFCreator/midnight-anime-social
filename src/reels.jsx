@@ -75,7 +75,7 @@ function ReelCard({ reel, user, profile, profiles }) {
     burstTimer.current = window.setTimeout(() => setLikeBurst(false), 850)
   }
   function handleVideoTap(event) {
-    if (event.target.closest('button, a, input, textarea')) return
+    if (event.target.closest('button, a, input, textarea, .reel-actions')) return
     const now = Date.now()
     if (now - lastTapAt.current < 280) {
       lastTapAt.current = 0
@@ -148,7 +148,7 @@ function ReelCard({ reel, user, profile, profiles }) {
       <div className="reel-author"><Avatar src={author.avatar || reel.avatar} mediaKey={author.avatarKey || reel.avatarKey} name={author.displayName || reel.authorName} size="sm"/><div><b>{reel.username || author.username || 'animefan'} <VerifiedBadge uid={reel.authorId} profile={author}/></b><span>{reel.authorName || author.displayName || 'Midnight fan'}</span></div>{reel.authorId !== user.uid && <button className={`reel-follow ${following ? 'following' : ''}`} onClick={toggleFollow}>{following ? 'Following' : 'Follow'}</button>}</div>
       <p className="reel-caption">{reel.caption || 'A moment from my anime world.'}</p>
       <span className="reel-audio-label">♫ Original audio · Midnight Anime</span>
-      <div className="reel-actions">
+      <div className="reel-actions" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}>
         <button className={liked ? 'is-liked' : ''} onClick={toggleLike} aria-label={liked ? 'Unlike Reel' : 'Like Reel'}><Heart fill={liked ? 'currentColor' : 'none'}/><span>{likeCount.toLocaleString()}</span></button>
         <button onClick={() => setShowComments((v) => !v)} aria-label="Show comments"><MessageCircle/><span>{comments.length.toLocaleString()}</span></button>
         <button onClick={share} aria-label="Share Reel"><Send/><span>Share</span></button>
