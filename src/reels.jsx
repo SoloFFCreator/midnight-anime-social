@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { onValue, push, ref, remove, set, update } from 'firebase/database'
 import { db } from './firebase'
-import { Avatar, EmptyState, PageHeading, VerifiedBadge, createSharePreviewUrl, createVideoThumbnail, getPrivateMediaUrl, uploadPrivateMedia, uploadShareThumbnail } from './ui.jsx'
+import { Avatar, EmptyState, PageHeading, VerifiedBadge, createSharePreviewUrl, createVideoThumbnail, createVideoThumbnailFromUrl, getPrivateMediaUrl, uploadPrivateMedia, uploadShareThumbnail } from './ui.jsx'
 import InstagramVideo from './InstagramVideo.jsx'
 import { Bookmark, Clapperboard, Heart, MessageCircle, Plus, Send, Volume2, VolumeX, X } from 'lucide-react'
 
@@ -120,13 +120,22 @@ function ReelCard({ reel, user, profile, profiles }) {
     try {
       const target = `${window.location.origin}/reels?reel=${encodeURIComponent(reel.id)}`
       const shareable = reel.visibility !== 'private'
-      const image = shareable && reel.thumbnailKey ? await getPrivateMediaUrl(reel.thumbnailKey, user) : ''
+      let image = shareable && reel.thumbnailKey ? await getPrivateMediaUrl(reel.thumbnailKey, user) : ''
+      if (shareable && !image && src) {
+        const poster = await createVideoThumbnailFromUrl(src)
+        if (poster) {
+          const posterKey = await uploadShareThumbnail(poster, user)
+          image = await getPrivateMediaUrl(posterKey, user)
+          if (image && reel.authorId === user.uid) update(ref(db, `reels/${reel.id}`), { thumbnailKey: posterKey }).catch(() => {})
+        }
+      }
+      if (shareable && !image) throw new Error('Could not make a real preview from this Reel. Wait for the video to load, then try sharing again.')
       const title = shareable ? `${reel.username || author.username || 'Fan'} on Midnight Anime` : 'Midnight Anime Social'
       const description = shareable ? (reel.caption || 'Watch this Reel on Midnight Anime Social.').replace(/\s+/g, ' ').trim().slice(0, 220) : 'A Reel from Midnight Anime Social.'
       const url = createSharePreviewUrl({ target, title, description, image })
       if (navigator.share) await navigator.share({ title: `${reel.username || author.username || 'Fan'} on Midnight Anime`, text: reel.caption || 'Watch this Reel', url })
       else { await navigator.clipboard.writeText(url); window.alert('Reel link copied.') }
-    } catch (error) { if (error?.name !== 'AbortError') window.alert('Could not share this Reel right now.') }
+    } catch (error) { if (error?.name !== 'AbortError') window.alert(error?.message || 'Could not share this Reel right now.') }
   }
   const video = document.getElementById(`video-${reel.id}`)
   return <article className="reel-card" id={`reel-${reel.id}`}>

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { onValue, ref } from 'firebase/database'
 import { auth, db } from './firebase'
 
-export { createVideoThumbnail, uploadPrivateMedia, uploadShareThumbnail } from './media.js'
+export { createVideoThumbnail, createVideoThumbnailFromUrl, uploadPrivateMedia, uploadShareThumbnail } from './media.js'
 
 export function BrandMark() {
   return <Link to="/" className="brand" aria-label="Midnight Anime Social home"><span className="brand-icon"><img src="/midnight-anime-logo.svg" alt="" /></span><span>Midnight<span className="brand-accent">Anime</span><small> SOCIAL</small></span></Link>

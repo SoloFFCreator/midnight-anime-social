@@ -183,3 +183,52 @@ export async function createVideoThumbnail(file) {
     video.src = objectUrl
   })
 }
+
+export async function createVideoThumbnailFromUrl(src) {
+  if (!src || typeof document === 'undefined') return null
+  return new Promise((resolve) => {
+    const video = document.createElement('video')
+    let finished = false
+    const timeout = window.setTimeout(() => finish(null), 18_000)
+    const finish = (thumbnail) => {
+      if (finished) return
+      finished = true
+      window.clearTimeout(timeout)
+      video.pause()
+      video.removeAttribute('src')
+      video.load()
+      resolve(thumbnail)
+    }
+    const capture = () => {
+      if (!video.videoWidth || !video.videoHeight) return finish(null)
+      const scale = Math.min(1, 640 / video.videoWidth, 640 / video.videoHeight)
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.max(1, Math.round(video.videoWidth * scale))
+      canvas.height = Math.max(1, Math.round(video.videoHeight * scale))
+      try {
+        const context = canvas.getContext('2d')
+        if (!context) return finish(null)
+        context.drawImage(video, 0, 0, canvas.width, canvas.height)
+        canvas.toBlob((blob) => {
+          if (!blob) return finish(null)
+          finish(new File([blob], 'reel-preview.jpg', { type: 'image/jpeg' }))
+        }, 'image/jpeg', 0.84)
+      } catch {
+        finish(null)
+      }
+    }
+    video.crossOrigin = 'anonymous'
+    video.preload = 'auto'
+    video.muted = true
+    video.playsInline = true
+    video.onloadedmetadata = () => {
+      if (Number.isFinite(video.duration) && video.duration > 0) video.currentTime = Math.min(0.75, video.duration * 0.1)
+      else capture()
+    }
+    video.onseeked = capture
+    video.onloadeddata = () => { if (video.readyState >= 2 && !Number.isFinite(video.duration)) capture() }
+    video.onerror = () => finish(null)
+    video.src = src
+    video.load()
+  })
+}
