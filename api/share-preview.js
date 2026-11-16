@@ -58,7 +58,9 @@ export default function handler(req, res) {
 
   const title = text(query.get('title'), 160) || 'Midnight Anime Social'
   const description = text(query.get('description'), 300) || 'A moment shared with the Midnight Anime community.'
-  const image = safeImage(query.get('image'))
+  // Older Reels predate thumbnail uploads; keep their WhatsApp unfurl visual
+  // rather than silently falling back to a text-only summary card.
+  const image = safeImage(query.get('image')) || (target.pathname === '/reels' ? new URL(`https://${PRODUCTION_HOST}/share-preview.png`) : null)
   const contentUrl = escapeHtml(target.toString())
   const forwardedHost = String(req.headers['x-forwarded-host'] || req.headers.host || PRODUCTION_HOST).split(',')[0].trim()
   const shareHost = isAppHost(forwardedHost) ? forwardedHost : PRODUCTION_HOST

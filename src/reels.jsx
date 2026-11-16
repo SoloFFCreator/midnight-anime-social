@@ -139,12 +139,12 @@ function ReelCard({ reel, user, profile, profiles }) {
       <div className="reel-author"><Avatar src={author.avatar || reel.avatar} mediaKey={author.avatarKey || reel.avatarKey} name={author.displayName || reel.authorName} size="sm"/><div><b>{reel.username || author.username || 'animefan'} <VerifiedBadge uid={reel.authorId} profile={author}/></b><span>{reel.authorName || author.displayName || 'Midnight fan'}</span></div>{reel.authorId !== user.uid && <button className={`reel-follow ${following ? 'following' : ''}`} onClick={toggleFollow}>{following ? 'Following' : 'Follow'}</button>}</div>
       <p className="reel-caption">{reel.caption || 'A moment from my anime world.'}</p>
       <span className="reel-audio-label">♫ Original audio · Midnight Anime</span>
-    </div>
-    <div className="reel-actions">
-      <button className={liked ? 'is-liked' : ''} onClick={toggleLike} aria-label={liked ? 'Unlike Reel' : 'Like Reel'}><Heart fill={liked ? 'currentColor' : 'none'}/><span>{likeCount.toLocaleString()}</span></button>
-      <button onClick={() => setShowComments((v) => !v)} aria-label="Show comments"><MessageCircle/><span>{comments.length.toLocaleString()}</span></button>
-      <button onClick={share} aria-label="Share Reel"><Send/><span>Share</span></button>
-      <button className={saved ? 'is-saved' : ''} onClick={toggleSave} aria-label={saved ? 'Unsave Reel' : 'Save Reel'}><Bookmark fill={saved ? 'currentColor' : 'none'}/><span>{saved ? 'Saved' : 'Save'}</span></button>
+      <div className="reel-actions">
+        <button className={liked ? 'is-liked' : ''} onClick={toggleLike} aria-label={liked ? 'Unlike Reel' : 'Like Reel'}><Heart fill={liked ? 'currentColor' : 'none'}/><span>{likeCount.toLocaleString()}</span></button>
+        <button onClick={() => setShowComments((v) => !v)} aria-label="Show comments"><MessageCircle/><span>{comments.length.toLocaleString()}</span></button>
+        <button onClick={share} aria-label="Share Reel"><Send/><span>Share</span></button>
+        <button className={saved ? 'is-saved' : ''} onClick={toggleSave} aria-label={saved ? 'Unsave Reel' : 'Save Reel'}><Bookmark fill={saved ? 'currentColor' : 'none'}/><span>{saved ? 'Saved' : 'Save'}</span></button>
+      </div>
     </div>
     {showComments && <div className="reel-comments"><div className="reel-comments-head"><b>Comments · {comments.length}</b><button onClick={() => setShowComments(false)} aria-label="Close comments"><X size={17}/></button></div><div className="reel-comment-list">{comments.length ? comments.map((item) => <p key={item.id}><b>@{item.username || 'fan'}</b> {item.text}</p>) : <p className="muted tiny">Be the first to comment.</p>}</div><form onSubmit={postComment}><input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Add a comment…" maxLength={500}/><button disabled={!comment.trim()}>Post</button></form></div>}
   </article>
