@@ -85,6 +85,7 @@ function safeName(name = 'media') {
 function corsOrigin(request, env) {
   const origin = request.headers.get('Origin') || ''
   const allowed = (env.ALLOWED_ORIGINS || '').split(',').map((x) => x.trim()).filter(Boolean)
+  if (origin === 'https://midnightsocial.bond') return origin
   return allowed.includes(origin) ? origin : (allowed[0] || 'null')
 }
 
