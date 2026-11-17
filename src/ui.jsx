@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { onValue, ref } from 'firebase/database'
+import { onValue, ref, runTransaction } from 'firebase/database'
 import { auth, db } from './firebase'
 
 export { createVideoThumbnail, createVideoThumbnailFromUrl, uploadPrivateMedia, uploadShareThumbnail } from './media.js'
@@ -24,12 +24,40 @@ export async function getPrivateMediaUrl(key, user = auth.currentUser) {
 }
 
 export function createSharePreviewUrl({ target, title, description, image = '' }) {
-  const preview = new URL('/api/share-preview', window.location.origin)
-  preview.searchParams.set('target', target)
-  preview.searchParams.set('title', title)
-  preview.searchParams.set('description', description)
-  if (image) preview.searchParams.set('image', image)
+  const shareOrigin = window.location.hostname === 'social.midnightanime.bond' ? 'https://midnightsocial.bond' : window.location.origin
+  const preview = new URL('/api/share-preview', shareOrigin)
+  if (/^[A-Za-z0-9_-]{11}$/.test(target || '')) preview.searchParams.set('id', target)
+  else {
+    preview.searchParams.set('target', target)
+    preview.searchParams.set('title', title)
+    preview.searchParams.set('description', description)
+    if (image) preview.searchParams.set('image', image)
+  }
   return preview.toString()
+}
+export async function createShortShareId({ target, title, description, image = '', authorId }) {
+  const bytes = new Uint8Array(8)
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    crypto.getRandomValues(bytes)
+    const id = btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+    const result = await runTransaction(ref(db, `shareLinks/${id}`), (current) => current === null
+      ? { id, target, title, description, ...(image ? { image } : {}), authorId, createdAt: Date.now() }
+      : undefined, { applyLocally: false })
+    if (result.committed) return id
+  }
+  throw new Error('Could not reserve a unique share link. Please try again.')
+}
+export async function createShareLinkUrl(details) {
+  try {
+    const id = await createShortShareId(details)
+    return createSharePreviewUrl({ target: id })
+  } catch (error) {
+    if (error?.code === 'PERMISSION_DENIED' || /permission denied/i.test(error?.message || '')) {
+      console.warn('Compact share links need the updated shareLinks database rules; using a compatible preview URL for this share.')
+      return createSharePreviewUrl(details)
+    }
+    throw error
+  }
 }
 
 export function Avatar({ src, mediaKey, name = '?', size = 'md', ring = false }) {

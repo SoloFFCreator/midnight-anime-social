@@ -5,6 +5,7 @@ import { db } from './firebase'
 import { NuvioApi } from './api/nuvio.js'
 import { TMDBApi, tmdbImage } from './api/tmdb.js'
 import StreamPlayer from './StreamPlayer.jsx'
+import { createShareLinkUrl } from './ui.jsx'
 import { ArrowLeft, AudioLines, Bookmark, Check, Clapperboard, Heart, MessageCircle, Send, X } from 'lucide-react'
 
 export default function AnimeReelPlayer({ user }) {
@@ -31,7 +32,6 @@ export default function AnimeReelPlayer({ user }) {
   const [comment, setComment] = useState('')
   const [actionMessage, setActionMessage] = useState('')
   const touchStartY = useRef(null)
-  const lastWheelStep = useRef(0)
   const lastTapAt = useRef(0)
   const swipeTimer = useRef(null)
   const burstTimer = useRef(null)
@@ -79,8 +79,10 @@ export default function AnimeReelPlayer({ user }) {
   useEffect(() => {
     if (!showComments) return undefined
     const closeOnEscape = (event) => { if (event.key === 'Escape') setShowComments(false) }
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
     window.addEventListener('keydown', closeOnEscape)
-    return () => window.removeEventListener('keydown', closeOnEscape)
+    return () => { document.body.style.overflow = previousOverflow; window.removeEventListener('keydown', closeOnEscape) }
   }, [showComments])
   useEffect(() => () => { window.clearTimeout(swipeTimer.current); window.clearTimeout(burstTimer.current) }, [])
   useEffect(() => {
@@ -125,28 +127,17 @@ export default function AnimeReelPlayer({ user }) {
     if (previousSeason) changeEpisode(previousSeason.season_number, previousSeason.episode_count || 1)
   }
   function handleTouchStart(event) {
-    if (event.target.closest('button, a, select, input, textarea, .anime-reel-actions')) return
+    if (!event.target.closest('.stream-player video')) return
     touchStartY.current = event.touches[0]?.clientY ?? null
   }
   function handleTouchEnd(event) {
-    if (touchStartY.current == null) {
-      if (event.target.closest('button, a, select, input, textarea, .anime-reel-actions')) return
-      const now = Date.now()
-      if (now - lastTapAt.current < 300) { lastTapAt.current = 0; likeFromGesture() }
-      else lastTapAt.current = now
-      return
-    }
+    if (touchStartY.current == null) return
     const delta = touchStartY.current - (event.changedTouches[0]?.clientY ?? touchStartY.current)
     touchStartY.current = null
     if (Math.abs(delta) > 65) { swipeToEpisode(delta > 0 ? 1 : -1); return }
     const now = Date.now()
     if (now - lastTapAt.current < 300) { lastTapAt.current = 0; likeFromGesture() }
     else lastTapAt.current = now
-  }
-  function handleWheel(event) {
-    if (Math.abs(event.deltaY) < 45 || Date.now() - lastWheelStep.current < 700) return
-    lastWheelStep.current = Date.now()
-    swipeToEpisode(event.deltaY > 0 ? 1 : -1)
   }
   function swipeToEpisode(direction) {
     if (mediaType === 'movie') return
@@ -179,8 +170,8 @@ export default function AnimeReelPlayer({ user }) {
     catch { setActionMessage('Firebase denied this save. Check the saved-item rules and try again.') }
   }
   async function shareEpisode() {
-    const url = `${window.location.origin}${route}`
     try {
+      const url = await createShareLinkUrl({ target: `${window.location.hostname === 'social.midnightanime.bond' ? 'https://midnightsocial.bond' : window.location.origin}${route}`, title: `${title} · ${episodeLabel}`, description: 'Watch this episode in Midnight Anime Social.', image: poster, authorId: user.uid })
       if (navigator.share) await navigator.share({ title: `${title} · ${episodeLabel}`, text: 'Watch this episode in Midnight Anime Social.', url })
       else { await navigator.clipboard.writeText(url); setActionMessage('Episode link copied.') }
     } catch (error) { if (error?.name !== 'AbortError') setActionMessage('Could not share this episode right now.') }
@@ -205,7 +196,7 @@ export default function AnimeReelPlayer({ user }) {
     {details && <>
       <div className="anime-reel-layout">
         <div className="anime-reel-stage" style={backdrop ? { backgroundImage: `linear-gradient(180deg,rgba(6,6,9,.12),rgba(6,6,9,.78)),url(${backdrop})` } : undefined}>
-          <div className={`anime-reel-frame ${swipeDirection ? `swipe-${swipeDirection}` : ''}`} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} onWheel={handleWheel} onDoubleClick={(event) => { if (!event.target.closest('button, a, select, input, textarea')) likeFromGesture() }}>
+          <div className={`anime-reel-frame ${swipeDirection ? `swipe-${swipeDirection}` : ''}`} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
             {source ? <StreamPlayer key={`${source.id}-${retry}`} source={source} poster={poster} onRetry={() => setRetry((value) => value + 1)}/> : <div className="anime-provider-wait">{resolving ? <><span className="spinner"/><b>Finding a provider source…</b><small>{title} · {episodeLabel}</small></> : <><Clapperboard size={26}/><b>Episode source unavailable</b><small>{providerError || 'Try another audio track or retry in a moment.'}</small><button className="secondary-button" type="button" onClick={() => setRetry((value) => value + 1)}>Retry provider</button></>}</div>}
             <div className="anime-reel-overlay"><div className="anime-reel-title"><span>TMDB · {mediaType === 'movie' ? 'FILM' : 'SERIES'}</span><b>{title}</b><small>{episodeLabel}</small></div><div className="anime-reel-actions"><button className="anime-audio-cycle" type="button" onClick={cycleAudio} aria-label={`Audio: ${audio === 'sub' ? 'subtitles' : audio === 'dub' ? 'dubbed' : 'Hindi'}. Tap to change`} title="Tap to cycle Sub, Dub and Hindi"><AudioLines/><span>{audio === 'sub' ? 'SUB' : audio === 'dub' ? 'DUB' : 'HIN'}</span></button><button className={liked ? 'is-liked' : ''} type="button" onClick={toggleLike} aria-label={liked ? 'Unlike episode' : 'Like episode'}><Heart fill={liked ? 'currentColor' : 'none'}/><span>{likes.toLocaleString()}</span></button><button type="button" onClick={() => setShowComments((value) => !value)} aria-label="Show episode comments"><MessageCircle/><span>{comments.length.toLocaleString()}</span></button><button type="button" onClick={shareEpisode} aria-label="Share episode"><Send/><span>Share</span></button><button className={saved ? 'is-saved' : ''} type="button" onClick={toggleSave} aria-label={saved ? 'Unsave episode' : 'Save episode'}>{saved ? <Check/> : <Bookmark/>}<span>{saved ? 'Saved' : 'Save'}</span></button></div></div>
             {likeBurst && <div className="anime-like-burst" aria-hidden="true"><Heart fill="currentColor"/></div>}

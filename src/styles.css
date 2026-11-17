@@ -155,3 +155,21 @@
 
 .reels-heading{display:flex!important}.reels-heading>div{display:block}
 @media(max-width:640px){.reels-heading{display:contents!important}.reels-heading>div{display:none}}
+
+/* Reel comments sheet: shared closeable, mobile-first conversation panel. */
+.reel-comments-backdrop,.anime-comments-backdrop{position:fixed;inset:0;z-index:210;display:flex;align-items:flex-end;justify-content:center;padding:0;background:rgba(0,0,0,.68);backdrop-filter:blur(7px)}
+.reel-comments-sheet,.anime-comments-backdrop .anime-comments{display:flex;flex-direction:column;width:min(100%,620px);height:min(72svh,680px);max-height:calc(100svh - 20px);margin:0;padding:16px 18px calc(14px + env(safe-area-inset-bottom));border:1px solid rgba(255,255,255,.1);border-bottom:0;border-radius:22px 22px 0 0;background:#121219;box-shadow:0 -18px 70px rgba(0,0,0,.5)}
+.reel-comments-sheet>header,.anime-comments-backdrop .anime-comments>header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:0 0 auto;padding:2px 0 14px;border-bottom:1px solid var(--line)}
+.reel-comments-sheet>header>div,.anime-comments-backdrop .anime-comments>header>div{display:flex;flex-direction:column;gap:4px}
+.reel-comments-sheet>header b,.anime-comments-backdrop .anime-comments>header b{font-size:14px}
+.reel-comments-sheet>header span,.anime-comments-backdrop .anime-comments>header span{font-size:10px;color:var(--t3)}
+.reel-comments-sheet>header button,.anime-comments-backdrop .anime-comments>header button{display:grid;place-items:center;width:38px;height:38px;border:1px solid var(--line);border-radius:50%;background:rgba(255,255,255,.06);color:#fff}
+.reel-comments-sheet .reel-comment-list,.anime-comments-backdrop .anime-comment-list{flex:1;min-height:80px;max-height:none;overflow-y:auto;overscroll-behavior:contain;padding:12px 2px}
+.reel-comments-sheet .reel-comment-list p,.anime-comments-backdrop .anime-comment-list p{padding:8px 0;font-size:12px;line-height:1.55}
+.reel-comments-sheet form,.anime-comments-backdrop .anime-comments form{flex:0 0 auto;display:flex;gap:8px;padding-top:12px;border-top:1px solid var(--line)}
+.reel-comments-sheet input,.anime-comments-backdrop .anime-comments input{height:44px;border-radius:999px;padding:0 15px;font-size:12px}
+.reel-comments-sheet form button,.anime-comments-backdrop .anime-comments form button{min-width:52px}
+@media(min-width:761px){.reel-comments-backdrop,.anime-comments-backdrop{align-items:center;padding:20px}.reel-comments-sheet,.anime-comments-backdrop .anime-comments{height:min(72vh,650px);border:1px solid rgba(255,255,255,.1);border-radius:20px}}
+@media(max-width:600px){.reel-comments-sheet,.anime-comments-backdrop .anime-comments{width:100%;height:min(78svh,700px);max-height:calc(100svh - 10px);padding:13px 14px calc(12px + env(safe-area-inset-bottom));border-radius:20px 20px 0 0}.anime-comments-backdrop{padding:0}.anime-reel-page{padding-top:0}.anime-reel-frame{width:min(100%,430px);max-height:calc(100svh - 134px)}}
+/* Do not animate the player frame on every swipe/tap; only episode content changes. */
+.anime-reel-frame.swipe-up,.anime-reel-frame.swipe-down{animation:none!important;transform:none!important;opacity:1!important}

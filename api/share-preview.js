@@ -1,4 +1,6 @@
-const PRODUCTION_HOST = 'social.midnightanime.bond'
+const PRODUCTION_HOST = 'midnightsocial.bond'
+const LEGACY_HOST = 'social.midnightanime.bond'
+const FIREBASE_DATABASE_URL = (process.env.FIREBASE_DATABASE_URL || 'https://mid-night-anime-default-rtdb.asia-southeast1.firebasedatabase.app').replace(/\/+$/, '')
 
 function text(value, maxLength) {
   return String(value || '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, maxLength)
@@ -11,7 +13,8 @@ function escapeHtml(value) {
 }
 
 function isAppHost(hostname) {
-  return hostname === PRODUCTION_HOST || (hostname.endsWith('.vercel.app') && hostname.startsWith('midnight-anime-social'))
+  return hostname === PRODUCTION_HOST || hostname === LEGACY_HOST
+    || (hostname.endsWith('.vercel.app') && hostname.startsWith('midnight-anime-social'))
 }
 
 function safeTarget(value) {
@@ -23,9 +26,8 @@ function safeTarget(value) {
       if (target.search || (target.hash && !/^#post-[A-Za-z0-9_-]{1,128}$/.test(target.hash))) return null
       return target
     }
-    if (target.pathname === '/reels' && !target.hash && /^[A-Za-z0-9_-]{1,128}$/.test(target.searchParams.get('reel') || '')) {
-      return target
-    }
+    if (target.pathname === '/reels' && !target.hash && /^[A-Za-z0-9_-]{1,128}$/.test(target.searchParams.get('reel') || '')) return target
+    if (/^\/reels\/anime\/(?:tv|movie)\/\d{1,12}\/\d{1,4}\/\d{1,4}$/.test(target.pathname) && !target.search && !target.hash) return target
   } catch { return null }
   return null
 }
@@ -36,33 +38,66 @@ function safeImage(value) {
     const image = new URL(value)
     if (image.protocol !== 'https:' || image.username || image.password) return null
     const host = image.hostname.toLowerCase()
-    const allowed = host === PRODUCTION_HOST
+    const allowed = host === PRODUCTION_HOST || host === LEGACY_HOST
       || host.endsWith('.amazonaws.com')
       || host.endsWith('.r2.cloudflarestorage.com')
       || host.endsWith('.r2.dev')
       || host.endsWith('.workers.dev')
       || (process.env.VITE_R2_WORKER_URL && host === new URL(process.env.VITE_R2_WORKER_URL).hostname)
+      || host === 'image.tmdb.org'
     return allowed ? image : null
   } catch { return null }
 }
 
-export default function handler(req, res) {
+async function readShare(id) {
+  if (!/^[A-Za-z0-9_-]{11}$/.test(id || '')) return null
+  const response = await fetch(`${FIREBASE_DATABASE_URL}/shareLinks/${encodeURIComponent(id)}.json`)
+  if (!response.ok) throw new Error(`Share metadata lookup failed (${response.status}).`)
+  return response.json()
+}
+
+export default async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.setHeader('Allow', 'GET, HEAD')
     return res.status(405).send('Method not allowed')
   }
 
   const query = new URL(req.url, `https://${PRODUCTION_HOST}`).searchParams
-  const target = safeTarget(query.get('target'))
+  let target
+  let title
+  let description
+  let imageValue
+  const id = query.get('id')
+  if (id) {
+    try {
+      const share = await readShare(id)
+      if (!share || share.id !== id) return res.status(404).send('Share link not found')
+      target = safeTarget(share.target)
+      title = text(share.title, 160)
+      description = text(share.description, 300)
+      imageValue = share.image
+    } catch (error) {
+      console.error('Could not resolve Reel share metadata.', error)
+      return res.status(503).send('Share link temporarily unavailable')
+    }
+  } else {
+    // Keep links issued by previous deployments working during the migration.
+    target = safeTarget(query.get('target'))
+    title = text(query.get('title'), 160)
+    description = text(query.get('description'), 300)
+    imageValue = query.get('image')
+  }
   if (!target) return res.status(400).send('Invalid share target')
 
-  const title = text(query.get('title'), 160) || 'Midnight Anime Social'
-  const description = text(query.get('description'), 300) || 'A moment shared with the Midnight Anime community.'
-  const image = safeImage(query.get('image'))
+  title ||= 'Midnight Anime Social'
+  description ||= 'A moment shared with the Midnight Anime community.'
+  const image = safeImage(imageValue)
   const contentUrl = escapeHtml(target.toString())
   const forwardedHost = String(req.headers['x-forwarded-host'] || req.headers.host || PRODUCTION_HOST).split(',')[0].trim()
   const shareHost = isAppHost(forwardedHost) ? forwardedHost : PRODUCTION_HOST
-  const shareUrl = escapeHtml(new URL(req.url, `https://${shareHost}`).toString())
+  const shareUrl = escapeHtml(id
+    ? `https://${PRODUCTION_HOST}/api/share-preview?id=${encodeURIComponent(id)}`
+    : new URL(req.url, `https://${shareHost}`).toString())
   const escapedTitle = escapeHtml(title)
   const escapedDescription = escapeHtml(description)
   const imageTags = image ? `

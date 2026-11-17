@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { onValue, push, ref, remove, set, update } from 'firebase/database'
 import { db } from './firebase'
-import { Avatar, EmptyState, PageHeading, VerifiedBadge, createSharePreviewUrl, createVideoThumbnail, createVideoThumbnailFromUrl, getPrivateMediaUrl, uploadPrivateMedia, uploadShareThumbnail } from './ui.jsx'
+import { Avatar, EmptyState, PageHeading, VerifiedBadge, createShareLinkUrl, createVideoThumbnail, createVideoThumbnailFromUrl, getPrivateMediaUrl, uploadPrivateMedia, uploadShareThumbnail } from './ui.jsx'
 import InstagramVideo from './InstagramVideo.jsx'
 import { Bookmark, Clapperboard, Heart, MessageCircle, Plus, Send, Volume2, VolumeX, X } from 'lucide-react'
 
@@ -63,6 +63,14 @@ function ReelCard({ reel, user, profile, profiles }) {
     return () => observer.disconnect()
   }, [reel.id, src])
   useEffect(() => () => { window.clearTimeout(singleTapTimer.current); window.clearTimeout(burstTimer.current) }, [])
+  useEffect(() => {
+    if (!showComments) return undefined
+    const previousOverflow = document.body.style.overflow
+    const closeOnEscape = (event) => { if (event.key === 'Escape') setShowComments(false) }
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', closeOnEscape)
+    return () => { document.body.style.overflow = previousOverflow; window.removeEventListener('keydown', closeOnEscape) }
+  }, [showComments])
 
   async function toggleLike() {
     const path = `reels/${reel.id}/likes/${user.uid}`
@@ -118,7 +126,7 @@ function ReelCard({ reel, user, profile, profiles }) {
   }
   async function share() {
     try {
-      const target = `${window.location.origin}/reels?reel=${encodeURIComponent(reel.id)}`
+      const target = `${window.location.hostname === 'social.midnightanime.bond' ? 'https://midnightsocial.bond' : window.location.origin}/reels?reel=${encodeURIComponent(reel.id)}`
       const shareable = reel.visibility !== 'private'
       let image = shareable && reel.thumbnailKey ? await getPrivateMediaUrl(reel.thumbnailKey, user) : ''
       if (shareable && !image && src) {
@@ -132,7 +140,7 @@ function ReelCard({ reel, user, profile, profiles }) {
       if (shareable && !image) throw new Error('Could not make a real preview from this Reel. Wait for the video to load, then try sharing again.')
       const title = shareable ? `${reel.username || author.username || 'Fan'} on Midnight Anime` : 'Midnight Anime Social'
       const description = shareable ? (reel.caption || 'Watch this Reel on Midnight Anime Social.').replace(/\s+/g, ' ').trim().slice(0, 220) : 'A Reel from Midnight Anime Social.'
-      const url = createSharePreviewUrl({ target, title, description, image })
+      const url = await createShareLinkUrl({ target, title, description, image, authorId: user.uid })
       if (navigator.share) await navigator.share({ title: `${reel.username || author.username || 'Fan'} on Midnight Anime`, text: reel.caption || 'Watch this Reel', url })
       else { await navigator.clipboard.writeText(url); window.alert('Reel link copied.') }
     } catch (error) { if (error?.name !== 'AbortError') window.alert(error?.message || 'Could not share this Reel right now.') }
@@ -155,7 +163,7 @@ function ReelCard({ reel, user, profile, profiles }) {
         <button className={saved ? 'is-saved' : ''} onClick={toggleSave} aria-label={saved ? 'Unsave Reel' : 'Save Reel'}><Bookmark fill={saved ? 'currentColor' : 'none'}/><span>{saved ? 'Saved' : 'Save'}</span></button>
       </div>
     </div>
-    {showComments && <div className="reel-comments"><div className="reel-comments-head"><b>Comments · {comments.length}</b><button onClick={() => setShowComments(false)} aria-label="Close comments"><X size={17}/></button></div><div className="reel-comment-list">{comments.length ? comments.map((item) => <p key={item.id}><b>@{item.username || 'fan'}</b> {item.text}</p>) : <p className="muted tiny">Be the first to comment.</p>}</div><form onSubmit={postComment}><input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Add a comment…" maxLength={500}/><button disabled={!comment.trim()}>Post</button></form></div>}
+    {showComments && <div className="reel-comments-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setShowComments(false)}><section className="reel-comments-sheet" role="dialog" aria-modal="true" aria-label="Reel comments"><header><div><b>Comments</b><span>{comments.length} · Reel conversation</span></div><button type="button" onClick={() => setShowComments(false)} aria-label="Close comments"><X size={19}/></button></header><div className="reel-comment-list">{comments.length ? comments.map((item) => <p key={item.id}><b>@{item.username || 'fan'}</b> {item.text}</p>) : <p className="muted tiny">Be the first to comment.</p>}</div><form onSubmit={postComment}><input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Add a comment…" maxLength={500}/><button disabled={!comment.trim()}>Post</button></form></section></div>}
   </article>
 }
 

@@ -20,7 +20,7 @@
 - [x] Parse and behavior-test the Realtime Database rules in the Firebase emulator: owner publishing, duplicate handles, other-user likes/comments, official badge eligibility, and new/legacy two-person DMs.
 - [ ] Review and apply the current [`database.rules.json`](./database.rules.json) to the correct `mid-night-anime` Realtime Database. The new rules are in the repo but Firebase Console rules are not automatically changed by a Git push.
 - [x] Existing two-member direct-message records remain supported without migration; new conversations use the explicit `a`/`b` member format.
-- [ ] Confirm Email/Password and Google providers are enabled and `social.midnightanime.bond` is authorized in Firebase Authentication.
+- [ ] Confirm Email/Password and Google providers are enabled and `midnightsocial.bond` is authorized in Firebase Authentication.
 - [ ] Confirm the linked AWS S3 bucket CORS policy permits `POST`, `GET` and `HEAD`, the Cloudflare R2 bucket permits `PUT`, `GET` and `HEAD`, and both private storage providers accept the production origin; test local origins only if needed.
 - [ ] After deployment, sign in and verify the Vercel AWS OIDC exchange with the corrected `https://sts.amazonaws.com` audience. If AWS still rejects the web identity token, review the IAM OIDC provider and role trust policy audience/subject claims in AWS.
 - [ ] Verify a fresh upload selects the faster successful AWS S3 or Cloudflare R2 backend, falls back on failure, and plays with audible sound after tapping the sound button.

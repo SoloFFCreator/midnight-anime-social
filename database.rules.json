@@ -34,6 +34,13 @@
         }
       }
     },
+    "shareLinks": {
+      "$shareId": {
+        ".read": true,
+        ".write": "auth != null && !data.exists() && newData.child('authorId').val() === auth.uid",
+        ".validate": "newData.hasChildren(['id', 'target', 'title', 'description', 'authorId', 'createdAt']) && newData.child('id').val() === $shareId && $shareId.matches(/^[A-Za-z0-9_-]{11}$/) && newData.child('target').isString() && newData.child('target').val().length <= 600 && newData.child('title').isString() && newData.child('title').val().length <= 160 && newData.child('description').isString() && newData.child('description').val().length <= 300 && newData.child('authorId').isString() && newData.child('authorId').val() === auth.uid && newData.child('createdAt').isNumber() && (!newData.child('image').exists() || (newData.child('image').isString() && newData.child('image').val().length <= 4096))"
+      }
+    },
     "reels": {
       ".read": "auth != null",
       ".indexOn": ["mediaKey", "thumbnailKey", "createdAt"],
