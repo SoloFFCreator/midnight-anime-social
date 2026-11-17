@@ -19,9 +19,11 @@
 
 - [x] Parse and behavior-test the Realtime Database rules in the Firebase emulator: owner publishing, duplicate handles, other-user likes/comments, official badge eligibility, and new/legacy two-person DMs.
 - [ ] Review and apply the current [`database.rules.json`](./database.rules.json) to the correct `mid-night-anime` Realtime Database. The new rules are in the repo but Firebase Console rules are not automatically changed by a Git push.
+- [ ] Publish the scoped `shareLinks` rules in `database.rules.json`; until then the app intentionally falls back to the longer legacy share-preview URL instead of failing to share. Publicly readable records contain only the share target and card metadata, never the private video URL.
 - [x] Existing two-member direct-message records remain supported without migration; new conversations use the explicit `a`/`b` member format.
 - [ ] Confirm Email/Password and Google providers are enabled and `midnightsocial.bond` is authorized in Firebase Authentication.
 - [ ] Confirm the linked AWS S3 bucket CORS policy permits `POST`, `GET` and `HEAD`, the Cloudflare R2 bucket permits `PUT`, `GET` and `HEAD`, and both private storage providers accept the production origin; test local origins only if needed.
+- [ ] Deploy the Worker origin allowlist update in `worker/wrangler.toml` so `https://midnightsocial.bond` is allowed, while retaining the previous hostname alias.
 - [ ] After deployment, sign in and verify the Vercel AWS OIDC exchange with the corrected `https://sts.amazonaws.com` audience. If AWS still rejects the web identity token, review the IAM OIDC provider and role trust policy audience/subject claims in AWS.
 - [ ] Verify a fresh upload selects the faster successful AWS S3 or Cloudflare R2 backend, falls back on failure, and plays with audible sound after tapping the sound button.
 - [ ] After the latest Vercel deploy, sign in with a test account and verify AWS S3 photo/video Post, Story and Reel publication/playback; duplicate-handle rejection; profile photo/handle updates; reactions/saves/comments; a new DM; and an actual TMDB/Nuvio provider stream.
