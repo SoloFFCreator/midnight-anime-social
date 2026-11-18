@@ -99,3 +99,10 @@ git diff --check
 ```
 
 After applying rules and enabling providers, test with real signed-in accounts: publish a photo/video post and Story, create and play a Reel, edit a handle, follow/unfollow, comment/save, open a DM and test provider playback. Add abuse reporting, moderation, server-side quotas/rate limits, account deletion and operational alerts before opening public sign-ups broadly.
+
+
+## Music distribution receiving (operator setup; not connected by default)
+
+The distribution receiving architecture, API contract, server-side configuration, and activation blockers are documented in [`docs/distribution-system.md`](./docs/distribution-system.md). The exact partner identities are **MONTYXLABEL.cyou** and **smusicdistrition.com**. No partner endpoint or secret is hard-coded. The `/distribution-admin` API requires Firebase Admin service credentials plus an explicit `DISTRIBUTION_ADMIN_UIDS` allowlist. The partner intake API remains disabled until real partner tokens are stored server-side. `database.rules.json` is not modified.
+
+The API accepts a DDEX ERN 4.3-family envelope for structural parsing and stores the original XML privately. This is not full XSD conformance: the official licensed ERN schema and a configured trusted validator are required before approval. The response is only a truthful receipt, not a partner delivery/publishing confirmation. S3 masters support resumable multipart transfer up to 10 GB per file. Optional AWS Transfer Family SFTP infrastructure is described in [`infra/distribution-sftp/`](./infra/distribution-sftp/); Vercel functions cannot receive inbound SFTP, and the template only stages files until a processing worker is connected and tested. Do not configure or advertise either integration as live without partner approval and successful end-to-end testing.

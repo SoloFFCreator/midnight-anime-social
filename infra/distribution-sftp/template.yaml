@@ -1,0 +1,149 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Optional Midnight Social partner SFTP landing service. This creates real AWS resources
+  only when an operator explicitly deploys it; uploads land in private staging prefixes
+  and are not app acknowledgements or catalogue deliveries.
+
+Parameters:
+  ExistingPrivateBucket:
+    Type: String
+    Description: Existing private S3 bucket used for Midnight Social media storage.
+  MontyXLabelSshPublicKey:
+    Type: String
+    Default: ''
+    Description: Partner-supplied ssh-ed25519 or ssh-rsa public key; leave blank until authorized.
+  SMusicDistributionSshPublicKey:
+    Type: String
+    Default: ''
+    Description: Partner-supplied ssh-ed25519 or ssh-rsa public key; leave blank until authorized.
+
+Conditions:
+  EnableMontyXLabel: !Not [!Equals [!Ref MontyXLabelSshPublicKey, '']]
+  EnableSMusicDistribution: !Not [!Equals [!Ref SMusicDistributionSshPublicKey, '']]
+
+Resources:
+  TransferLoggingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: transfer.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnLike:
+                aws:SourceArn: !Sub 'arn:${AWS::Partition}:transfer:${AWS::Region}:${AWS::AccountId}:server/*'
+      Policies:
+        - PolicyName: WriteTransferLogs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:DescribeLogStreams
+                  - logs:CreateLogGroup
+                  - logs:PutLogEvents
+                Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/transfer/*'
+
+  PartnerS3AccessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: transfer.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnLike:
+                aws:SourceArn: !Sub 'arn:${AWS::Partition}:transfer:${AWS::Region}:${AWS::AccountId}:server/*'
+      Policies:
+        - PolicyName: PartnerPrivateSftpLanding
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: !Sub 'arn:${AWS::Partition}:s3:::${ExistingPrivateBucket}'
+                Condition:
+                  StringLike:
+                    s3:prefix:
+                      - distribution/sftp/montyxlabel/*
+                      - distribution/sftp/smusicdistrition/*
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:AbortMultipartUpload
+                  - s3:ListMultipartUploadParts
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:s3:::${ExistingPrivateBucket}/distribution/sftp/montyxlabel/*'
+                  - !Sub 'arn:${AWS::Partition}:s3:::${ExistingPrivateBucket}/distribution/sftp/smusicdistrition/*'
+
+  DistributionSftpServer:
+    Type: AWS::Transfer::Server
+    Properties:
+      Domain: S3
+      EndpointType: PUBLIC
+      IdentityProviderType: SERVICE_MANAGED
+      LoggingRole: !GetAtt TransferLoggingRole.Arn
+      Protocols:
+        - SFTP
+      SecurityPolicyName: TransferSecurityPolicy-2024-01
+      Tags:
+        - Key: Application
+          Value: MidnightSocialDistribution
+        - Key: State
+          Value: PendingPartnerApproval
+
+  MontyXLabelSftpUser:
+    Type: AWS::Transfer::User
+    Condition: EnableMontyXLabel
+    Properties:
+      ServerId: !GetAtt DistributionSftpServer.ServerId
+      UserName: montyxlabel
+      Role: !GetAtt PartnerS3AccessRole.Arn
+      SshPublicKeys:
+        - !Ref MontyXLabelSshPublicKey
+      HomeDirectoryType: LOGICAL
+      HomeDirectoryMappings:
+        - Entry: /
+          Target: !Sub '/${ExistingPrivateBucket}/distribution/sftp/montyxlabel'
+      Tags:
+        - Key: Partner
+          Value: MONTYXLABEL.cyou
+
+  SMusicDistributionSftpUser:
+    Type: AWS::Transfer::User
+    Condition: EnableSMusicDistribution
+    Properties:
+      ServerId: !GetAtt DistributionSftpServer.ServerId
+      UserName: smusicdistrition
+      Role: !GetAtt PartnerS3AccessRole.Arn
+      SshPublicKeys:
+        - !Ref SMusicDistributionSshPublicKey
+      HomeDirectoryType: LOGICAL
+      HomeDirectoryMappings:
+        - Entry: /
+          Target: !Sub '/${ExistingPrivateBucket}/distribution/sftp/smusicdistrition'
+      Tags:
+        - Key: Partner
+          Value: smusicdistrition.com
+
+Outputs:
+  TransferServerId:
+    Value: !GetAtt DistributionSftpServer.ServerId
+  SftpHost:
+    Value: !Sub 's-${DistributionSftpServer.ServerId}.server.transfer.${AWS::Region}.amazonaws.com'
+  Warning:
+    Value: >-
+      This SFTP server only receives files to private S3 staging. It is not connected to
+      the ERN intake/validator and does not issue app receipts or delivery confirmations.

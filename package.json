@@ -6,14 +6,17 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "vite preview --host 0.0.0.0",
+    "test:distribution": "node --test test/distribution/*.test.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.850.0",
     "@aws-sdk/s3-presigned-post": "^3.1164.0",
     "@aws-sdk/s3-request-presigner": "^3.850.0",
     "@vercel/oidc-aws-credentials-provider": "^3.3.19",
+    "fast-xml-parser": "^5.12.1",
     "firebase": "^12.0.0",
+    "firebase-admin": "^13.5.0",
     "hls.js": "^1.6.13",
     "lucide-react": "^0.468.0",
     "react": "^18.3.1",
