@@ -39,3 +39,11 @@
 - [x] Add an animated, reduced-motion-aware Midnight Anime splash using the original logo while authentication or lazy-loaded UI is resolving.
 - [x] Fade and disable custom video controls and sound actions after playback inactivity; reveal them on interaction and keep them visible while paused.
 - [x] Redesign Inbox with a real-profile horizontal people strip, existing-chat prioritization, deduplicated profiles, and responsive conversation/chat layouts.
+
+## Reel sharing, comments, and public URLs
+- [x] Make Reel sharing call the native share sheet immediately with canonical `https://midnightsocial.bond/reels/{reelId}` URLs; do not perform Firebase or media work before the tap action, and never include private video URLs in share metadata.
+- [x] Add a single shared Instagram-inspired comments sheet to social and Anime Reels with readable rows, a composer, backdrop dismissal, Escape dismissal, and a clear close button.
+- [x] Apply shared Reel action-rail styling and remove blur/filter from comment and tap overlays while preserving playback and episode controls.
+- [x] Add `/reels/:reelId` and `/@:handle` client routes and canonical links; legacy query-style Reel routes remain supported.
+- [x] Add bot-only HTML previews, public-only safe metadata mirrors, sitemap, robots.txt and llms.txt; private media URLs are excluded.
+- [ ] Apply the scoped `publicContent` Firebase rules to the live database and verify crawler access after deployment; live Firebase anonymous reads were previously denied.

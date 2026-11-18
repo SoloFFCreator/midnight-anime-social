@@ -2,6 +2,32 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     {
+      "source": "/reels/:id",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(Googlebot|googlebot|Google-InspectionTool|Bingbot|bingbot|DuckDuckBot|duckduckbot|GPTBot|gptbot|ChatGPT-User|chatgpt-user|ClaudeBot|claudebot|Claude-SearchBot|PerplexityBot|Applebot|meta-externalagent|Bytespider|Amazonbot).*"
+        }
+      ],
+      "destination": "/api/public-preview?type=reel&id=:id"
+    },
+    {
+      "source": "/@:handle",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(Googlebot|googlebot|Google-InspectionTool|Bingbot|bingbot|DuckDuckBot|duckduckbot|GPTBot|gptbot|ChatGPT-User|chatgpt-user|ClaudeBot|claudebot|Claude-SearchBot|PerplexityBot|Applebot|meta-externalagent|Bytespider|Amazonbot).*"
+        }
+      ],
+      "destination": "/api/public-preview?type=profile&handle=:handle"
+    },
+    {
+      "source": "/sitemap.xml",
+      "destination": "/api/sitemap"
+    },
+    {
       "source": "/:path((?!api/).*)",
       "destination": "/index.html"
     }

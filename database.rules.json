@@ -11,7 +11,9 @@
     },
     "profiles": {
       ".read": "auth != null",
-      ".indexOn": ["avatarKey"],
+      ".indexOn": [
+        "avatarKey"
+      ],
       "$uid": {
         ".write": "auth != null && auth.uid === $uid",
         ".validate": "newData.hasChildren(['uid', 'username', 'displayName']) && newData.child('uid').val() === $uid && newData.child('username').isString() && newData.child('username').val().matches(/^[a-z0-9][a-z0-9._]{1,28}[a-z0-9]$/) && root.child('handleIndex').child(newData.child('username').val()).val() === auth.uid && (!newData.child('officialBadge').exists() || (newData.child('officialBadge').val() === 'gold' && auth.token.email === 'mallaprabesh141@gmail.com' && auth.token.email_verified === true)) && (!newData.child('artistBadge').exists() || (newData.child('artistBadge').val() === true && auth.token.email === 'ffsolo844@gmail.com' && auth.token.email_verified === true))"
@@ -19,12 +21,18 @@
     },
     "posts": {
       ".read": "auth != null",
-      ".indexOn": ["mediaKey", "thumbnailKey", "createdAt"],
+      ".indexOn": [
+        "mediaKey",
+        "thumbnailKey",
+        "createdAt"
+      ],
       "$postId": {
         ".write": "auth != null && ((!data.exists() && newData.child('authorId').val() === auth.uid) || (data.exists() && data.child('authorId').val() === auth.uid && (!newData.exists() || newData.child('authorId').val() === auth.uid)))",
         ".validate": "!newData.exists() || (newData.hasChildren(['id', 'authorId', 'username', 'mediaKey', 'mediaType', 'caption', 'createdAt', 'visibility']) && newData.child('id').val() === $postId && newData.child('authorId').isString() && newData.child('username').isString() && newData.child('mediaKey').isString() && newData.child('mediaKey').val().length <= 512 && (newData.child('mediaType').val() === 'image' || newData.child('mediaType').val() === 'video') && newData.child('caption').isString() && newData.child('caption').val().length <= 1200 && newData.child('createdAt').isNumber() && newData.child('visibility').val() === 'public')",
         "likes": {
-          "$uid": { ".write": "auth != null && auth.uid === $uid && (!newData.exists() || newData.val() === true)" }
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid && (!newData.exists() || newData.val() === true)"
+          }
         },
         "comments": {
           "$commentId": {
@@ -43,12 +51,18 @@
     },
     "reels": {
       ".read": "auth != null",
-      ".indexOn": ["mediaKey", "thumbnailKey", "createdAt"],
+      ".indexOn": [
+        "mediaKey",
+        "thumbnailKey",
+        "createdAt"
+      ],
       "$reelId": {
         ".write": "auth != null && ((!data.exists() && newData.child('authorId').val() === auth.uid) || (data.exists() && data.child('authorId').val() === auth.uid && (!newData.exists() || newData.child('authorId').val() === auth.uid)))",
         ".validate": "!newData.exists() || (newData.hasChildren(['id', 'authorId', 'username', 'mediaKey', 'mediaType', 'caption', 'createdAt', 'visibility']) && newData.child('id').val() === $reelId && newData.child('authorId').isString() && newData.child('username').isString() && newData.child('mediaKey').isString() && newData.child('mediaKey').val().length <= 512 && newData.child('mediaType').val() === 'video' && newData.child('caption').isString() && newData.child('caption').val().length <= 1200 && newData.child('createdAt').isNumber() && newData.child('visibility').val() === 'public')",
         "likes": {
-          "$uid": { ".write": "auth != null && auth.uid === $uid && (!newData.exists() || newData.val() === true)" }
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid && (!newData.exists() || newData.val() === true)"
+          }
         },
         "comments": {
           "$commentId": {
@@ -60,7 +74,11 @@
     },
     "stories": {
       ".read": "auth != null",
-      ".indexOn": ["mediaKey", "createdAt", "expiresAt"],
+      ".indexOn": [
+        "mediaKey",
+        "createdAt",
+        "expiresAt"
+      ],
       "$storyId": {
         ".write": "auth != null && ((!data.exists() && newData.child('authorId').val() === auth.uid) || (data.exists() && data.child('authorId').val() === auth.uid && (!newData.exists() || newData.child('authorId').val() === auth.uid)))",
         ".validate": "!newData.exists() || (newData.hasChildren(['id', 'authorId', 'username', 'mediaKey', 'mediaType', 'caption', 'createdAt', 'expiresAt', 'visibility']) && newData.child('id').val() === $storyId && newData.child('authorId').val() === auth.uid && newData.child('username').isString() && newData.child('mediaKey').isString() && newData.child('mediaKey').val().length <= 512 && (newData.child('mediaType').val() === 'image' || newData.child('mediaType').val() === 'video') && newData.child('caption').isString() && newData.child('caption').val().length <= 1200 && newData.child('createdAt').isNumber() && newData.child('expiresAt').isNumber() && newData.child('visibility').val() === 'public')"
@@ -70,7 +88,9 @@
       "$episodeKey": {
         ".read": "auth != null",
         "likes": {
-          "$uid": { ".write": "auth != null && auth.uid === $uid && (!newData.exists() || newData.val() === true)" }
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid && (!newData.exists() || newData.val() === true)"
+          }
         },
         "comments": {
           "$commentId": {
@@ -127,13 +147,37 @@
           ".read": "auth != null",
           ".write": "auth != null && !data.exists() && newData.hasChildren(['a', 'b']) && (newData.child('a').val() === auth.uid || newData.child('b').val() === auth.uid)",
           ".validate": "newData.hasChildren(['a', 'b']) && newData.child('a').isString() && newData.child('b').isString() && newData.child('a').val() !== newData.child('b').val()",
-          "$slot": { ".validate": "$slot === 'a' || $slot === 'b'" }
+          "$slot": {
+            ".validate": "$slot === 'a' || $slot === 'b'"
+          }
         },
         "messages": {
           "$messageId": {
             ".write": "auth != null && (root.child('chats').child($chatId).child('participants').child('a').val() === auth.uid || root.child('chats').child($chatId).child('participants').child('b').val() === auth.uid || root.child('chats').child($chatId).child('participants').child(auth.uid).val() === true) && ((!data.exists() && newData.child('senderId').val() === auth.uid && newData.child('text').isString() && newData.child('text').val().length <= 2000) || (data.exists() && data.child('senderId').val() === auth.uid && (!newData.exists() || newData.child('senderId').val() === auth.uid)))"
           }
         }
+      }
+    },
+    "publicContent": {
+      "profiles": {
+        "$handle": {
+          ".write": "auth != null && ((newData.exists() && newData.child('uid').val() === auth.uid) || (!newData.exists() && data.child('uid').val() === auth.uid))",
+          ".validate": "!newData.exists() || (newData.hasChildren(['uid','username','displayName','bio','website','updatedAt']) && newData.child('username').val() === $handle && $handle.matches(/^[a-z0-9][a-z0-9._]{1,28}[a-z0-9]$/) && newData.child('displayName').isString() && newData.child('displayName').val().length <= 80 && newData.child('bio').isString() && newData.child('bio').val().length <= 300 && newData.child('website').isString() && newData.child('website').val().length <= 240 && newData.child('updatedAt').isNumber() && (!newData.child('officialBadge').exists() || newData.child('officialBadge').val() === 'gold') && (!newData.child('artistBadge').exists() || newData.child('artistBadge').val() === true))",
+          "$other": {
+            ".validate": "false"
+          }
+        },
+        ".read": true
+      },
+      "reels": {
+        "$reelId": {
+          ".write": "auth != null && newData.child('authorId').val() === auth.uid",
+          ".validate": "!newData.exists() || (newData.hasChildren(['id','authorId','username','authorName','caption','createdAt','contentType']) && newData.child('id').val() === $reelId && newData.child('id').isString() && newData.child('authorId').isString() && newData.child('username').isString() && newData.child('authorName').isString() && newData.child('authorName').val().length <= 80 && newData.child('caption').isString() && newData.child('caption').val().length <= 1200 && newData.child('createdAt').isNumber() && newData.child('contentType').val() === 'reel')",
+          "$other": {
+            ".validate": "false"
+          }
+        },
+        ".read": true
       }
     }
   }

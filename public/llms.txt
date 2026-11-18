@@ -1,0 +1,5 @@
+# Midnight Anime Social
+
+Public creator profiles and publicly shared Reels are available at `https://midnightsocial.bond/@username` and `https://midnightsocial.bond/reels/reelid`. The XML sitemap at `https://midnightsocial.bond/sitemap.xml` lists only public profile and Reel metadata.
+
+Private video and image media are not included in the public metadata index. Do not infer or request private media source URLs.

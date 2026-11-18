@@ -1,15 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { onValue, push, ref, remove, set, update } from 'firebase/database'
 import { db } from './firebase'
-import { Avatar, EmptyState, PageHeading, VerifiedBadge, createShareLinkUrl, createVideoThumbnail, createVideoThumbnailFromUrl, getPrivateMediaUrl, uploadPrivateMedia, uploadShareThumbnail } from './ui.jsx'
+import { Avatar, EmptyState, PageHeading, VerifiedBadge, createVideoThumbnail, createVideoThumbnailFromUrl, getPrivateMediaUrl, uploadPrivateMedia, uploadShareThumbnail } from './ui.jsx'
+import ReelCommentsSheet from './ReelCommentsSheet.jsx'
 import InstagramVideo from './InstagramVideo.jsx'
-import { Bookmark, Clapperboard, Heart, MessageCircle, Plus, Send, Volume2, VolumeX, X } from 'lucide-react'
+import { Bookmark, Clapperboard, Heart, MessageCircle, Plus, Send, Volume2, VolumeX } from 'lucide-react'
 
 export function ReelsPage({ user, profile, profiles, reels }) {
-  const [searchParams] = useSearchParams()
-  const requestedId = searchParams.get('reel')
+  const { reelId } = useParams()
+  const requestedId = reelId || new URLSearchParams(window.location.search).get('reel')
   const [showUpload, setShowUpload] = useState(false)
+  useEffect(() => {
+    for (const item of reels) {
+      if (!item?.id || item.visibility !== 'public') continue
+      const safeRecord = { id: item.id, authorId: item.authorId || '', username: String(item.username || 'animefan').slice(0, 30), authorName: String(item.authorName || item.username || 'Midnight fan').slice(0, 80), caption: String(item.caption || '').slice(0, 1200), createdAt: Number(item.createdAt) || 0, contentType: 'reel' }
+      set(ref(db, `publicContent/reels/${item.id}`), safeRecord).catch(() => {})
+    }
+  }, [reels])
   useEffect(() => {
     if (!requestedId) return
     const timer = window.setTimeout(() => document.getElementById(`reel-${requestedId}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 100)
@@ -63,14 +71,6 @@ function ReelCard({ reel, user, profile, profiles }) {
     return () => observer.disconnect()
   }, [reel.id, src])
   useEffect(() => () => { window.clearTimeout(singleTapTimer.current); window.clearTimeout(burstTimer.current) }, [])
-  useEffect(() => {
-    if (!showComments) return undefined
-    const previousOverflow = document.body.style.overflow
-    const closeOnEscape = (event) => { if (event.key === 'Escape') setShowComments(false) }
-    document.body.style.overflow = 'hidden'
-    window.addEventListener('keydown', closeOnEscape)
-    return () => { document.body.style.overflow = previousOverflow; window.removeEventListener('keydown', closeOnEscape) }
-  }, [showComments])
 
   async function toggleLike() {
     const path = `reels/${reel.id}/likes/${user.uid}`
@@ -125,26 +125,17 @@ function ReelCard({ reel, user, profile, profiles }) {
     } catch { /* keep input in place if writes are disabled */ }
   }
   async function share() {
+    const url = `https://midnightsocial.bond/reels/${encodeURIComponent(reel.id)}`
+    const title = `${reel.username || author.username || 'Fan'} on Midnight Anime`
+    const text = (reel.caption || 'Watch this Reel on Midnight Anime Social.').replace(/\s+/g, ' ').trim().slice(0, 220)
     try {
-      const target = `${window.location.hostname === 'social.midnightanime.bond' ? 'https://midnightsocial.bond' : window.location.origin}/reels?reel=${encodeURIComponent(reel.id)}`
-      const shareable = reel.visibility !== 'private'
-      let image = shareable && reel.thumbnailKey ? await getPrivateMediaUrl(reel.thumbnailKey, user) : ''
-      if (shareable && !image && src) {
-        const poster = await createVideoThumbnailFromUrl(src)
-        if (poster) {
-          const posterKey = await uploadShareThumbnail(poster, user)
-          image = await getPrivateMediaUrl(posterKey, user)
-          if (image && reel.authorId === user.uid) update(ref(db, `reels/${reel.id}`), { thumbnailKey: posterKey }).catch(() => {})
-        }
-      }
-      if (shareable && !image) throw new Error('Could not make a real preview from this Reel. Wait for the video to load, then try sharing again.')
-      const title = shareable ? `${reel.username || author.username || 'Fan'} on Midnight Anime` : 'Midnight Anime Social'
-      const description = shareable ? (reel.caption || 'Watch this Reel on Midnight Anime Social.').replace(/\s+/g, ' ').trim().slice(0, 220) : 'A Reel from Midnight Anime Social.'
-      const url = await createShareLinkUrl({ target, title, description, image, authorId: user.uid })
-      if (navigator.share) await navigator.share({ title: `${reel.username || author.username || 'Fan'} on Midnight Anime`, text: reel.caption || 'Watch this Reel', url })
-      else { await navigator.clipboard.writeText(url); window.alert('Reel link copied.') }
-    } catch (error) { if (error?.name !== 'AbortError') window.alert(error?.message || 'Could not share this Reel right now.') }
+      // Start native sharing directly in the tap handler; no Firebase or media work first.
+      if (navigator.share) await navigator.share({ title, text, url })
+      else if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(url); window.alert('Reel link copied.') }
+      else window.prompt('Copy this Reel link:', url)
+    } catch (error) { if (error?.name !== 'AbortError') window.alert('Could not share this Reel right now.') }
   }
+
   const video = document.getElementById(`video-${reel.id}`)
   return <article className="reel-card" id={`reel-${reel.id}`}>
     <div className="reel-video-wrap" onClick={handleVideoTap}>
@@ -163,7 +154,7 @@ function ReelCard({ reel, user, profile, profiles }) {
         <button className={saved ? 'is-saved' : ''} onClick={toggleSave} aria-label={saved ? 'Unsave Reel' : 'Save Reel'}><Bookmark fill={saved ? 'currentColor' : 'none'}/><span>{saved ? 'Saved' : 'Save'}</span></button>
       </div>
     </div>
-    {showComments && <div className="reel-comments-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setShowComments(false)}><section className="reel-comments-sheet" role="dialog" aria-modal="true" aria-label="Reel comments"><header><div><b>Comments</b><span>{comments.length} · Reel conversation</span></div><button type="button" onClick={() => setShowComments(false)} aria-label="Close comments"><X size={19}/></button></header><div className="reel-comment-list">{comments.length ? comments.map((item) => <p key={item.id}><b>@{item.username || 'fan'}</b> {item.text}</p>) : <p className="muted tiny">Be the first to comment.</p>}</div><form onSubmit={postComment}><input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Add a comment…" maxLength={500}/><button disabled={!comment.trim()}>Post</button></form></section></div>}
+    <ReelCommentsSheet open={showComments} comments={comments} caption={reel.caption} profile={profile} username={profile?.username || 'you'} value={comment} onChange={setComment} onSubmit={postComment} onClose={() => setShowComments(false)} />
   </article>
 }
 
@@ -195,7 +186,11 @@ function ReelUploadModal({ user, profile, onClose }) {
       if (poster) { try { setProgress('Uploading the private share preview…'); thumbnailKey = await uploadShareThumbnail(poster, user, setProgress) } catch (error) { console.warn('Could not upload optional Reel preview image.', error) } }
       setProgress('Publishing your Reel…')
       const node = push(ref(db, 'reels'))
-      await set(node, { id: node.key, authorId: user.uid, authorName: profile.displayName || user.displayName || 'Midnight fan', username: profile.username || 'animefan', avatar: profile.avatar || '', avatarKey: profile.avatarKey || '', mediaKey: key, mediaUrl: '', mediaType: 'video', ...(thumbnailKey ? { thumbnailKey } : {}), caption: caption.trim().slice(0, 1200), createdAt: Date.now(), visibility: 'public' })
+      const createdAt = Date.now()
+      const captionText = caption.trim().slice(0, 1200)
+      await set(node, { id: node.key, authorId: user.uid, authorName: profile.displayName || user.displayName || 'Midnight fan', username: profile.username || 'animefan', avatar: profile.avatar || '', avatarKey: profile.avatarKey || '', mediaKey: key, mediaUrl: '', mediaType: 'video', ...(thumbnailKey ? { thumbnailKey } : {}), caption: captionText, createdAt, visibility: 'public' })
+      try { await set(ref(db, `publicContent/reels/${node.key}`), { id: node.key, authorId: user.uid, username: profile.username || 'animefan', authorName: String(profile.displayName || user.displayName || 'Midnight fan').slice(0, 80), caption: captionText, createdAt, contentType: 'reel' }) }
+      catch (publicError) { console.warn('Public Reel metadata sync was deferred until publicContent rules are applied:', publicError.code || publicError.message) }
       onClose()
     } catch (e) { const detail=`${e?.code||''} ${e?.message||''}`;setError(/PERMISSION_DENIED|permission.denied/i.test(detail)?'Firebase denied this Reel write. Apply the reviewed database.rules.json to the mid-night-anime Realtime Database, then retry.':e?.message||'Could not publish this Reel.') }
     finally { setBusy(false); setProgress('') }

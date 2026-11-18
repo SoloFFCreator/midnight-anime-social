@@ -114,6 +114,14 @@ export function SessionProvider({ children }) {
           try { await remove(ref(db, `profiles/${next.uid}/artistBadge`)) }
           catch (writeError) { console.warn('Artist badge removal was deferred:', writeError.code || writeError.message) }
         }
+        try {
+          if (previousHandle && (nextProfile.visibility === 'private' || nextProfile.isPrivate === true)) await set(ref(db, `publicContent/profiles/${previousHandle}`), null)
+          else {
+            const publicProfile = { uid: next.uid, username: nextProfile.username, displayName: String(nextProfile.displayName || 'Midnight fan').slice(0, 80), bio: String(nextProfile.bio || '').slice(0, 300), website: String(nextProfile.website || '').slice(0, 240), updatedAt: Date.now(), ...(nextProfile.officialBadge === 'gold' ? { officialBadge: 'gold' } : {}), ...(nextProfile.artistBadge === true ? { artistBadge: true } : {}) }
+            await set(ref(db, `publicContent/profiles/${nextProfile.username}`), publicProfile)
+            if (previousHandle && previousHandle !== nextProfile.username) await set(ref(db, `publicContent/profiles/${previousHandle}`), null)
+          }
+        } catch (publicError) { console.warn('Public profile metadata sync was deferred until publicContent rules are applied:', publicError.code || publicError.message) }
         if (active) setProfile(nextProfile)
       } catch (readError) {
         console.warn('Profile could not be loaded; continuing with the signed-in account:', readError.code || readError.message)
@@ -129,6 +137,14 @@ export function SessionProvider({ children }) {
     if (!user) throw new Error('Sign in first.')
     const next = { ...profile, ...patch, uid: user.uid, updatedAt: Date.now() }
     await update(ref(db, `profiles/${user.uid}`), patch)
+    try {
+      if (next.visibility === 'private' || next.isPrivate === true) await set(ref(db, `publicContent/profiles/${profile?.username || next.username}`), null)
+      else {
+        const publicProfile = { uid: user.uid, username: next.username, displayName: String(next.displayName || 'Midnight fan').slice(0, 80), bio: String(next.bio || '').slice(0, 300), website: String(next.website || '').slice(0, 240), updatedAt: next.updatedAt, ...(next.officialBadge === 'gold' ? { officialBadge: 'gold' } : {}), ...(next.artistBadge === true ? { artistBadge: true } : {}) }
+        await set(ref(db, `publicContent/profiles/${next.username}`), publicProfile)
+        if (profile?.username && profile.username !== next.username) await set(ref(db, `publicContent/profiles/${profile.username}`), null)
+      }
+    } catch (publicError) { console.warn('Public profile metadata sync was deferred until publicContent rules are applied:', publicError.code || publicError.message) }
     if (patch.displayName && patch.displayName !== user.displayName) {
       try { await updateProfile(user, { displayName: patch.displayName }) }
       catch (error) { console.warn('Auth display name sync was deferred:', error.code || error.message) }

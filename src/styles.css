@@ -173,3 +173,31 @@
 @media(max-width:600px){.reel-comments-sheet,.anime-comments-backdrop .anime-comments{width:100%;height:min(78svh,700px);max-height:calc(100svh - 10px);padding:13px 14px calc(12px + env(safe-area-inset-bottom));border-radius:20px 20px 0 0}.anime-comments-backdrop{padding:0}.anime-reel-page{padding-top:0}.anime-reel-frame{width:min(100%,430px);max-height:calc(100svh - 134px)}}
 /* Do not animate the player frame on every swipe/tap; only episode content changes. */
 .anime-reel-frame.swipe-up,.anime-reel-frame.swipe-down{animation:none!important;transform:none!important;opacity:1!important}
+
+/* Shared Instagram-like comments panel and interaction rail for both Reel players. */
+.reel-comments-backdrop{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:rgba(0,0,0,.58)!important;touch-action:none}
+.reel-comments-sheet{position:relative;gap:0;width:min(100%,600px);height:min(76svh,720px);padding:8px 16px calc(12px + env(safe-area-inset-bottom));border-radius:18px 18px 0 0;background:#111116;box-shadow:0 -14px 48px rgba(0,0,0,.38)}
+.reel-comments-handle{flex:0 0 auto;width:38px;height:4px;margin:2px auto 12px;border-radius:9px;background:#5b5961}
+.reel-comments-header{min-height:48px;padding:0 0 12px!important}
+.reel-comments-header h2{margin:0;color:#f7f5f4;font-size:15px;font-weight:750}
+.reel-comments-header span{margin-top:4px;color:#9b98a0;font-size:10px}
+.reel-comments-header button{width:34px!important;height:34px!important;border:0!important;background:transparent!important}
+.reel-comment-list{display:flex;flex-direction:column;gap:16px!important;padding:16px 2px!important}
+.reel-comment-row{display:grid;grid-template-columns:36px minmax(0,1fr) 24px;align-items:start;gap:10px}
+.reel-comment-avatar,.reel-compose-avatar{display:grid;width:36px;height:36px;place-items:center;border-radius:50%;background:linear-gradient(140deg,#f8894b,#8d3c89);color:white;font-size:12px;font-weight:800}
+.reel-comment-copy{min-width:0}.reel-comment-copy p{margin:0!important;padding:0!important;color:#eee;font-size:12px!important;line-height:1.5!important;overflow-wrap:anywhere}.reel-comment-copy p b{margin-right:5px;color:#fff;font-size:11px}.reel-comment-copy small{display:block;margin-top:5px;color:#8e8b94;font-size:9px}
+.reel-comment-like{border:0;background:none;color:#a39fa6;font-size:19px;line-height:1;cursor:pointer}
+.reel-comments-empty{display:grid;place-content:center;justify-items:center;flex:1;gap:6px;color:#aaa;font-size:11px}.reel-comments-empty b{color:#fff;font-size:14px}
+.reel-comments-error{margin:5px 0;color:#ffad9e;font-size:10px}
+.reel-comment-compose{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:12px 0 calc(4px + env(safe-area-inset-bottom));border-top:1px solid rgba(255,255,255,.08)}
+.reel-comment-compose input{flex:1;min-width:0;height:40px;padding:0 13px;border:1px solid rgba(255,255,255,.16);border-radius:999px;background:transparent;color:#f8f5f4;font-size:11px}
+.reel-comment-compose button{display:grid;place-items:center;width:38px;height:38px;border:0;border-radius:50%;background:#ff7a3d;color:#fff;cursor:pointer}.reel-comment-compose button:disabled{opacity:.4;cursor:default}
+.reel-compose-avatar{width:34px;height:34px;background:#34313a}
+.reel-comments-backdrop{z-index:300}
+.reel-video-wrap{isolation:isolate}.reel-video-wrap>.reel-scrim{pointer-events:none;filter:none!important;-webkit-filter:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}.reel-video-wrap>video{transform:translateZ(0);filter:none!important;-webkit-filter:none!important}
+.reel-actions button,.anime-reel-actions button{touch-action:manipulation;transition:color .14s ease,transform .14s ease}.reel-actions button:active,.anime-reel-actions button:active{transform:scale(.94)}
+.reel-actions.anime-reel-actions{position:absolute;right:12px;bottom:51px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:19px;padding:0;z-index:7}
+.reel-actions.anime-reel-actions button{display:flex;min-width:43px;flex-direction:column;align-items:center;gap:3px;padding:5px 3px;border:0;background:transparent;color:#fff;text-shadow:0 1px 5px #000;cursor:pointer}
+.reel-actions.anime-reel-actions svg{width:24px;height:24px;filter:drop-shadow(0 1px 4px rgba(0,0,0,.85))}.reel-actions.anime-reel-actions span{font-size:9px;font-weight:750}.reel-actions.anime-reel-actions .anime-audio-cycle{color:#ffc394}
+@media(min-width:761px){.reel-comments-sheet{height:min(72vh,680px);border:1px solid rgba(255,255,255,.1);border-radius:18px;background:#111116}}
+@media(max-width:600px){.reel-comments-sheet{width:100%;height:min(78svh,720px);max-height:calc(100svh - 10px);padding:8px 14px calc(12px + env(safe-area-inset-bottom));border-radius:18px 18px 0 0}.reel-actions.anime-reel-actions{right:12px;bottom:calc(47px + env(safe-area-inset-bottom));gap:20px}.reel-actions.anime-reel-actions svg{width:25px;height:25px}}
