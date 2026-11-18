@@ -13,7 +13,7 @@
       "destination": "/api/public-preview?type=reel&id=:id"
     },
     {
-      "source": "/@:handle",
+      "source": "/profile/:handle",
       "has": [
         {
           "type": "header",

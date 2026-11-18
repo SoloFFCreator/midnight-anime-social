@@ -44,6 +44,7 @@
 - [x] Make Reel sharing call the native share sheet immediately with canonical `https://midnightsocial.bond/reels/{reelId}` URLs; do not perform Firebase or media work before the tap action, and never include private video URLs in share metadata.
 - [x] Add a single shared Instagram-inspired comments sheet to social and Anime Reels with readable rows, a composer, backdrop dismissal, Escape dismissal, and a clear close button.
 - [x] Apply shared Reel action-rail styling and remove blur/filter from comment and tap overlays while preserving playback and episode controls.
-- [x] Add `/reels/:reelId` and `/@:handle` client routes and canonical links; legacy query-style Reel routes remain supported.
+- [x] Add `/reels/:reelId` and `/profile/@username` client routes and canonical links; keep legacy profile and Reel routes supported.
 - [x] Add bot-only HTML previews, public-only safe metadata mirrors, sitemap, robots.txt and llms.txt; private media URLs are excluded.
+- [x] Resolve `/profile/@username` to a profile instead of the home route and add a Back-to-Home button on Reels.
 - [ ] Apply the scoped `publicContent` Firebase rules to the live database and verify crawler access after deployment; live Firebase anonymous reads were previously denied.

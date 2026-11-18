@@ -22,7 +22,8 @@ function safeTarget(value) {
   try {
     const target = new URL(value)
     if (target.protocol !== 'https:' || !isAppHost(target.hostname) || target.username || target.password) return null
-    if (/^\/profile\/(?:[A-Za-z0-9._~-]|%[0-9a-f]{2}){1,384}$/i.test(target.pathname)) {
+    if (/^\/profile\/@[a-z0-9][a-z0-9._]{1,28}[a-z0-9]$/i.test(target.pathname)
+      || /^\/profile\/(?:[A-Za-z0-9._~-]|%[0-9a-f]{2}){1,384}$/i.test(target.pathname)) {
       if (target.search || (target.hash && !/^#post-[A-Za-z0-9_-]{1,128}$/.test(target.hash))) return null
       return target
     }

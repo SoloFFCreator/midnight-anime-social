@@ -21,10 +21,10 @@ export default async function handler(req, res) {
       canonical = `${HOST}/reels/${encodeURIComponent(item.id)}`
       title = `${text(item.authorName || item.username || 'Creator', 80)} on Midnight Anime Social`
       description = text(item.caption || 'Watch this public Reel on Midnight Anime Social.', 300)
-    } else if (type === 'profile' && validHandle(q.get('handle'))) {
-      item = await getPublic(`profiles/${encodeURIComponent(q.get('handle'))}`)
-      if (!item || item.username !== q.get('handle')) return res.status(404).send('Public profile not found')
-      canonical = `${HOST}/@${encodeURIComponent(item.username)}`
+    } else if (type === 'profile' && validHandle(String(q.get('handle') || '').replace(/^@/, ''))) {
+      item = await getPublic(`profiles/${encodeURIComponent(String(q.get('handle') || '').replace(/^@/, ''))}`)
+      if (!item || item.username !== String(q.get('handle') || '').replace(/^@/, '')) return res.status(404).send('Public profile not found')
+      canonical = `${HOST}/profile/@${encodeURIComponent(item.username)}`
       title = `${text(item.displayName || item.username, 80)} (@${text(item.username, 30)}) · Midnight Anime Social`
       description = text(item.bio || `Public profile of ${item.displayName || item.username} on Midnight Anime Social.`, 300)
     } else return res.status(404).send('Not found')

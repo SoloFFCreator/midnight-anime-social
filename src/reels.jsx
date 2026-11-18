@@ -5,7 +5,7 @@ import { db } from './firebase'
 import { Avatar, EmptyState, PageHeading, VerifiedBadge, createVideoThumbnail, createVideoThumbnailFromUrl, getPrivateMediaUrl, uploadPrivateMedia, uploadShareThumbnail } from './ui.jsx'
 import ReelCommentsSheet from './ReelCommentsSheet.jsx'
 import InstagramVideo from './InstagramVideo.jsx'
-import { Bookmark, Clapperboard, Heart, MessageCircle, Plus, Send, Volume2, VolumeX } from 'lucide-react'
+import { ArrowLeft, Bookmark, Clapperboard, Heart, MessageCircle, Plus, Send, Volume2, VolumeX } from 'lucide-react'
 
 export function ReelsPage({ user, profile, profiles, reels }) {
   const { reelId } = useParams()
@@ -24,6 +24,7 @@ export function ReelsPage({ user, profile, profiles, reels }) {
     return () => window.clearTimeout(timer)
   }, [requestedId, reels.length])
   return <section className="reels-page">
+    <Link className="reels-back-button" to="/" aria-label="Back to Home"><ArrowLeft size={16}/><span>Back</span></Link>
     <div className="reels-heading"><div><PageHeading eyebrow="SHORT-FORM FAN MOMENTS" title="Reels" sub="A quick scroll through your fandom."/><Link className="text-link anime-reels-entry" to="/anime"><Clapperboard size={14}/> Watch anime episodes as Reels ↗</Link></div><button className="primary-button reel-create-button" onClick={() => setShowUpload(true)}><Plus size={16}/> Create Reel</button></div>
     {reels.length ? <div className="reels-feed">{reels.map((item) => <ReelCard key={item.id} reel={item} user={user} profile={profile} profiles={profiles}/>)}</div> : <div className="reels-empty"><EmptyState icon={<Clapperboard/>} title="The Reel is yours to make" text="Share a short video from your anime world. It uses the faster private AWS S3 or Cloudflare R2 storage available."/><button className="primary-button" onClick={() => setShowUpload(true)}><Plus size={16}/> Upload your first Reel</button></div>}
     {showUpload && <ReelUploadModal user={user} profile={profile} onClose={() => setShowUpload(false)}/>}

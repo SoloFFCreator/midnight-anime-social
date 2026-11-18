@@ -201,3 +201,8 @@
 .reel-actions.anime-reel-actions svg{width:24px;height:24px;filter:drop-shadow(0 1px 4px rgba(0,0,0,.85))}.reel-actions.anime-reel-actions span{font-size:9px;font-weight:750}.reel-actions.anime-reel-actions .anime-audio-cycle{color:#ffc394}
 @media(min-width:761px){.reel-comments-sheet{height:min(72vh,680px);border:1px solid rgba(255,255,255,.1);border-radius:18px;background:#111116}}
 @media(max-width:600px){.reel-comments-sheet{width:100%;height:min(78svh,720px);max-height:calc(100svh - 10px);padding:8px 14px calc(12px + env(safe-area-inset-bottom));border-radius:18px 18px 0 0}.reel-actions.anime-reel-actions{right:12px;bottom:calc(47px + env(safe-area-inset-bottom));gap:20px}.reel-actions.anime-reel-actions svg{width:25px;height:25px}}
+
+/* Explicit profile route's @handle lives inside /profile; keep Back and Create apart on mobile Reels. */
+.reels-back-button{display:inline-flex;align-items:center;gap:7px;width:max-content;margin:0 0 9px;padding:8px 11px;border:1px solid rgba(255,255,255,.12);border-radius:999px;background:rgba(18,18,24,.92);color:#f5f3f2;text-decoration:none;font-size:11px;font-weight:750;box-shadow:0 3px 14px rgba(0,0,0,.22)}
+.reels-back-button svg{color:#ff9a61}
+@media(max-width:640px){body:has(.reels-page) .reels-back-button{position:fixed;z-index:21;top:calc(10px + env(safe-area-inset-top));left:12px;margin:0;height:34px;padding:0 11px;background:rgba(0,0,0,.68);border-color:rgba(255,255,255,.28)}body:has(.reels-page) .reel-create-button{right:12px!important;left:auto!important}}

@@ -4,7 +4,6 @@ Disallow: /api/
 Disallow: /inbox/
 Disallow: /saved
 Disallow: /notifications
-Disallow: /profile
 Disallow: /login
 Disallow: /register
 Disallow: /forgot-password
